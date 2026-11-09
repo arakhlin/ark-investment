@@ -64,56 +64,13 @@ Financial endpoints are scoped to a Client:
 
 The complete API specification is available in [OpenAPI](api/openapi.yaml).
 
-## Postman
+## Postman (Optional)
 
-Import the collection and environment:
+Import `postman/Ark-Investment-API.postman_collection.json` and `postman/Ark-Local-Demo.postman_environment.json`.
 
-- `postman/Ark-Investment-API.postman_collection.json`
-- `postman/Ark-Local-Demo.postman_environment.json`
+The committed environment contains no passwords or tokens. Demo credentials are generated locally and stored under `.ark-demo/` (excluded from Git). To use Postman, populate your local environment with those credentials; never commit or share a populated environment file.
 
-The committed environment contains no credentials. Generate a local environment populated with demo passwords:
-
-```sh
-node <<'JS'
-const fs = require('node:fs');
-const path = require('node:path');
-const demo = require('./docs/demo.cjs');
-
-const config = demo.load();
-const environment = JSON.parse(
-  fs.readFileSync('postman/Ark-Local-Demo.postman_environment.json', 'utf8')
-);
-
-const values = new Map(environment.values.map(v => [v.key, v]));
-values.get('api_url').value = `http://localhost:${config.apiPort}/api/v1`;
-values.get('oidc_issuer').value = demo.issuer(config);
-
-for (const value of environment.values.filter(v => v.key.endsWith('_username'))) {
-  const password = config.userPasswords[value.value];
-  if (!password) throw new Error(`Missing credentials for ${value.value}`);
-  values.get(value.key.replace(/_username$/, '_password')).value = password;
-}
-
-const output = path.join('.ark-demo', config.project, 'postman.local.json');
-fs.writeFileSync(output, JSON.stringify(environment, null, 2) + '\n', { mode: 0o600 });
-fs.chmodSync(output, 0o600);
-console.log(output);
-JS
-```
-
-Import the generated `.ark-demo/<project>/postman.local.json` and select it as the active environment.
-
-This file contains plaintext demo passwords. Keep it local and do not commit or share it.
-
-Run the Postman collection folders in order to exercise authentication, administration, financial operations, reporting, authorization, and cleanup.
-
-Alternatively, run the full collection using Newman:
-
-```sh
-npx --yes newman@6.2.1 run postman/Ark-Investment-API.postman_collection.json \
-  --environment ".ark-demo/${DEMO_PROJECT:-ark-demo-client-local}/postman.local.json" \
-  --bail --reporters cli --timeout-request 20000
-```
+For a quick walkthrough without managing tokens manually, use the demo CLI commands above.
 
 ## Financial Reporting Example
 
