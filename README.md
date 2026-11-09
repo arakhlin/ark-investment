@@ -65,29 +65,14 @@ node docs/demo.cjs seed
 
 For authentication, Postman examples, verification, and cleanup instructions, see [Getting Started](docs/GETTING_STARTED.md).
 
-## Running Tests
+## Testing
 
-**Prerequisites:** Java 21, running Docker, Node.js 22+, and Ruby with YAML support. Maven and Testcontainers download dependencies and images on first use. OpenAPI lint and optional Newman checks also require npm/npx and internet access for initial tool downloads.
+The final submission passed automated Java and Node tests, OpenAPI validation, and a fresh Docker demo acceptance run (startup, repeat startup, seed, and live API verification).
 
-Run the Java unit and integration tests:
+- [CI results](https://github.com/arakhlin/ark-investment/actions/runs/42705596451)
+- [Fresh Docker Demo Acceptance](https://github.com/arakhlin/ark-investment/actions/runs/42705596389)
 
-```sh
-./mvnw -B clean verify
-```
-
-Run all three Node suites (monetary contract, demo fixtures, and startup/retry behavior):
-
-```sh
-node --test docs/api/monetary-validation.test.cjs docs/demo/fixtures.test.cjs docs/demo/start.test.cjs
-```
-
-Validate the OpenAPI specification:
-
-```sh
-npx --yes @redocly/cli@2.75.0 lint docs/api/openapi.yaml
-```
-
-[Submission CI for `c5f115f`](https://github.com/arakhlin/ark-investment/actions/runs/42699130133) passed 165 Java tests, 158 Node tests, and OpenAPI lint. Full Docker acceptance was not repeated on that final implementation commit. See [Testing](docs/TESTING.md) for the startup timeout investigation, successful retry verification, final response-body timeout regression coverage, and historical acceptance evidence.
+See [Testing](docs/TESTING.md) for commands to reproduce these checks.
 
 ## Documentation
 
