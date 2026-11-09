@@ -1,43 +1,35 @@
 # Testing
 
-This document explains how to reproduce the automated checks and verify the running demo.
+The final submission passed both GitHub Actions workflows:
 
-## Prerequisites
+- [CI](https://github.com/arakhlin/ark-investment/actions/runs/42705596451): Java unit and PostgreSQL integration tests, Node tests, and OpenAPI lint.
+- [Fresh Docker Demo Acceptance](https://github.com/arakhlin/ark-investment/actions/runs/42705596389): clean checkout, fresh Docker startup, repeated startup, seed, live API verification, repeated seed and verification, and cleanup.
 
-- Java 21 for Maven tests
-- Docker Engine running with Docker Compose v2
-- Node.js 22+ (including npm/npx)
-- Ruby with YAML support for the CI YAML check
+## Run Automated Tests
 
-The first run requires internet access to download dependencies and container images. Ensure Docker has enough memory for PostgreSQL, Keycloak, and the API; running multiple stacks concurrently can cause timeouts or out-of-memory failures.
+From the repository root, with Java 21, Node.js 22+, and Docker running:
 
-## Automated Checks
-
-Run from the repository root.
-
-**Java unit and PostgreSQL integration tests** (Testcontainers requires Docker):
+**Java tests** (including PostgreSQL integration tests via Testcontainers):
 
 ```sh
 ./mvnw -B clean verify
 ```
 
-**Node contract, fixture, and startup/retry tests:**
+**Node tests:**
 
 ```sh
 node --test docs/api/monetary-validation.test.cjs docs/demo/fixtures.test.cjs docs/demo/start.test.cjs
 ```
 
-**OpenAPI lint:**
+**OpenAPI lint** (requires npm/npx):
 
 ```sh
 npx --yes @redocly/cli@2.75.0 lint docs/api/openapi.yaml
 ```
 
-GitHub Actions runs the automated checks in [ci.yml](../.github/workflows/ci.yml). The [latest Submission CI run](https://github.com/arakhlin/ark-investment/actions/runs/42700022918) passed on commit `db7d432`. It includes 165 Java tests and 158 Node tests, plus OpenAPI lint. Redocly reports two non-blocking warnings about license metadata and the local server URL.
+## Run the Live Demo Verification
 
-## Live Demo Verification
-
-Start and seed the application following [Getting Started](GETTING_STARTED.md):
+With Docker and Node.js 22+:
 
 ```sh
 node docs/demo.cjs start
@@ -45,16 +37,12 @@ node docs/demo.cjs seed
 node docs/demo.cjs verify
 ```
 
-The live verifier checks authenticated API operations, financial calculations, Client isolation, role-based authorization, and audit behavior against PostgreSQL and Keycloak.
+The verifier exercises authenticated endpoints, financial reporting, Client isolation, authorization, and audit behavior against PostgreSQL and Keycloak. Repeat `start`, `seed`, and `verify` to check rerun behavior.
 
-The demo can be stopped without deleting its data:
+Stop the demo without deleting data:
 
 ```sh
 node docs/demo.cjs down
 ```
 
-## Verification Status and Limits
-
-The latest Submission CI passed. Earlier isolated local runs also passed live API verification, but **a complete fresh-clone Docker acceptance was not repeated on the final implementation commit**. CI does not run the full Keycloak demo or Postman/Newman acceptance workflow. Do not interpret CI success as proof of a clean first-run Docker deployment.
-
-The demo is designed for local evaluation, not production use. These tests do not establish production readiness, load capacity, or complete security coverage.
+See [Getting Started](GETTING_STARTED.md) for setup and API examples. The demo is intended for local evaluation, not production deployment.
