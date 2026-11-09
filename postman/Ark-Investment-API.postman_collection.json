@@ -1,0 +1,2321 @@
+{
+  "info": {
+    "name": "Ark Investment API — Reviewer Demo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run all seven folders in order with Ark Local Demo selected. See docs/GETTING_STARTED.md. Uses existing Keycloak accounts and actual database-backed roles. Dynamically discovers both Clients, captures generated IDs, verifies exact reports and denied access, and cleans its own financial records. No registration or invitation endpoint. No passwords, tokens, or Client IDs are committed. This is a local demo collection, not a load test. Run sequentially in one environment; do not run concurrent collection iterations."
+  },
+  "item": [
+    {
+      "name": "Authentication and Current User",
+      "description": "Run first. All seven demo users cover six roles. Passwords must be supplied locally; tokens are captured automatically. Authentication is the existing Keycloak token endpoint, never an API login endpoint. Tokens expire: rerun this folder to refresh them.",
+      "item": [
+        {
+          "name": "Authenticate CLIENT_ADMIN (alpha_admin)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": "{{oidc_issuer}}/protocol/openid-connect/token",
+            "description": "Local-demo password grant for public client; no client secret. Do not share token responses or export populated secrets.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{oidc_client_id}}"
+                },
+                {
+                  "key": "username",
+                  "value": "{{alpha_admin_username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{alpha_admin_password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('alpha_admin_token');",
+                  "if (!pm.environment.get('alpha_admin_password')) { pm.execution.setNextRequest(null); throw new Error('Missing local alpha_admin_password. Import the private environment described in docs/GETTING_STARTED.md.'); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json();",
+                  "pm.test('Bearer access token issued', function () { pm.expect(arkResponse.token_type.toLowerCase()).to.eql('bearer'); pm.expect(typeof arkResponse.access_token).to.eql('string'); pm.expect(arkResponse.access_token.length > 20).to.eql(true); pm.expect(arkResponse.expires_in).to.be.above(0); });",
+                  "pm.environment.set('alpha_admin_token',arkResponse.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current user: alpha_admin",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/me",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const user=pm.response.json(); pm.environment.set('alpha_admin_user_id',user.id);",
+                  "pm.test('Database role and ownership', function () { pm.expect(user.role).to.eql('CLIENT_ADMIN'); pm.expect(user.status).to.eql('ACTIVE'); pm.expect(user.userType).to.eql('CLIENT'); pm.expect(user.clientId).to.match(/^[0-9a-f-]{36}$/i); });",
+                  "pm.environment.set('alpha_client_id',user.clientId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Authenticate CLIENT_MANAGER (alpha_manager)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": "{{oidc_issuer}}/protocol/openid-connect/token",
+            "description": "Local-demo password grant for public client; no client secret. Do not share token responses or export populated secrets.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{oidc_client_id}}"
+                },
+                {
+                  "key": "username",
+                  "value": "{{alpha_manager_username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{alpha_manager_password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('alpha_manager_token');",
+                  "if (!pm.environment.get('alpha_manager_password')) { pm.execution.setNextRequest(null); throw new Error('Missing local alpha_manager_password. Import the private environment described in docs/GETTING_STARTED.md.'); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json();",
+                  "pm.test('Bearer access token issued', function () { pm.expect(arkResponse.token_type.toLowerCase()).to.eql('bearer'); pm.expect(typeof arkResponse.access_token).to.eql('string'); pm.expect(arkResponse.access_token.length > 20).to.eql(true); pm.expect(arkResponse.expires_in).to.be.above(0); });",
+                  "pm.environment.set('alpha_manager_token',arkResponse.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current user: alpha_manager",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/me",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const user=pm.response.json(); pm.environment.set('alpha_manager_user_id',user.id);",
+                  "pm.test('Database role and ownership', function () { pm.expect(user.role).to.eql('CLIENT_MANAGER'); pm.expect(user.status).to.eql('ACTIVE'); pm.expect(user.userType).to.eql('CLIENT'); pm.expect(user.clientId).to.match(/^[0-9a-f-]{36}$/i); });",
+                  "pm.test('Same Alpha ownership', function () { pm.expect(user.clientId).to.eql(pm.environment.get('alpha_client_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Authenticate CLIENT_REPORT_VIEWER (alpha_viewer)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": "{{oidc_issuer}}/protocol/openid-connect/token",
+            "description": "Local-demo password grant for public client; no client secret. Do not share token responses or export populated secrets.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{oidc_client_id}}"
+                },
+                {
+                  "key": "username",
+                  "value": "{{alpha_viewer_username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{alpha_viewer_password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('alpha_viewer_token');",
+                  "if (!pm.environment.get('alpha_viewer_password')) { pm.execution.setNextRequest(null); throw new Error('Missing local alpha_viewer_password. Import the private environment described in docs/GETTING_STARTED.md.'); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json();",
+                  "pm.test('Bearer access token issued', function () { pm.expect(arkResponse.token_type.toLowerCase()).to.eql('bearer'); pm.expect(typeof arkResponse.access_token).to.eql('string'); pm.expect(arkResponse.access_token.length > 20).to.eql(true); pm.expect(arkResponse.expires_in).to.be.above(0); });",
+                  "pm.environment.set('alpha_viewer_token',arkResponse.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current user: alpha_viewer",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_viewer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/me",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const user=pm.response.json(); pm.environment.set('alpha_viewer_user_id',user.id);",
+                  "pm.test('Database role and ownership', function () { pm.expect(user.role).to.eql('CLIENT_REPORT_VIEWER'); pm.expect(user.status).to.eql('ACTIVE'); pm.expect(user.userType).to.eql('CLIENT'); pm.expect(user.clientId).to.match(/^[0-9a-f-]{36}$/i); });",
+                  "pm.test('Same Alpha ownership', function () { pm.expect(user.clientId).to.eql(pm.environment.get('alpha_client_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Authenticate CLIENT_ADMIN (beta_admin)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": "{{oidc_issuer}}/protocol/openid-connect/token",
+            "description": "Local-demo password grant for public client; no client secret. Do not share token responses or export populated secrets.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{oidc_client_id}}"
+                },
+                {
+                  "key": "username",
+                  "value": "{{beta_admin_username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{beta_admin_password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('beta_admin_token');",
+                  "if (!pm.environment.get('beta_admin_password')) { pm.execution.setNextRequest(null); throw new Error('Missing local beta_admin_password. Import the private environment described in docs/GETTING_STARTED.md.'); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json();",
+                  "pm.test('Bearer access token issued', function () { pm.expect(arkResponse.token_type.toLowerCase()).to.eql('bearer'); pm.expect(typeof arkResponse.access_token).to.eql('string'); pm.expect(arkResponse.access_token.length > 20).to.eql(true); pm.expect(arkResponse.expires_in).to.be.above(0); });",
+                  "pm.environment.set('beta_admin_token',arkResponse.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current user: beta_admin",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{beta_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/me",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const user=pm.response.json(); pm.environment.set('beta_admin_user_id',user.id);",
+                  "pm.test('Database role and ownership', function () { pm.expect(user.role).to.eql('CLIENT_ADMIN'); pm.expect(user.status).to.eql('ACTIVE'); pm.expect(user.userType).to.eql('CLIENT'); pm.expect(user.clientId).to.match(/^[0-9a-f-]{36}$/i); });",
+                  "pm.environment.set('beta_client_id',user.clientId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Authenticate ARK_ADMIN (ark_admin)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": "{{oidc_issuer}}/protocol/openid-connect/token",
+            "description": "Local-demo password grant for public client; no client secret. Do not share token responses or export populated secrets.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{oidc_client_id}}"
+                },
+                {
+                  "key": "username",
+                  "value": "{{ark_admin_username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{ark_admin_password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('ark_admin_token');",
+                  "if (!pm.environment.get('ark_admin_password')) { pm.execution.setNextRequest(null); throw new Error('Missing local ark_admin_password. Import the private environment described in docs/GETTING_STARTED.md.'); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json();",
+                  "pm.test('Bearer access token issued', function () { pm.expect(arkResponse.token_type.toLowerCase()).to.eql('bearer'); pm.expect(typeof arkResponse.access_token).to.eql('string'); pm.expect(arkResponse.access_token.length > 20).to.eql(true); pm.expect(arkResponse.expires_in).to.be.above(0); });",
+                  "pm.environment.set('ark_admin_token',arkResponse.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current user: ark_admin",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/me",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const user=pm.response.json(); pm.environment.set('ark_admin_user_id',user.id);",
+                  "pm.test('Database role and ownership', function () { pm.expect(user.role).to.eql('ARK_ADMIN'); pm.expect(user.status).to.eql('ACTIVE'); pm.expect(user.userType).to.eql('ARK'); pm.expect(user.clientId).to.eql(null); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Authenticate ARK_OPERATIONS (ark_operations)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": "{{oidc_issuer}}/protocol/openid-connect/token",
+            "description": "Local-demo password grant for public client; no client secret. Do not share token responses or export populated secrets.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{oidc_client_id}}"
+                },
+                {
+                  "key": "username",
+                  "value": "{{ark_operations_username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{ark_operations_password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('ark_operations_token');",
+                  "if (!pm.environment.get('ark_operations_password')) { pm.execution.setNextRequest(null); throw new Error('Missing local ark_operations_password. Import the private environment described in docs/GETTING_STARTED.md.'); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json();",
+                  "pm.test('Bearer access token issued', function () { pm.expect(arkResponse.token_type.toLowerCase()).to.eql('bearer'); pm.expect(typeof arkResponse.access_token).to.eql('string'); pm.expect(arkResponse.access_token.length > 20).to.eql(true); pm.expect(arkResponse.expires_in).to.be.above(0); });",
+                  "pm.environment.set('ark_operations_token',arkResponse.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current user: ark_operations",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_operations_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/me",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const user=pm.response.json(); pm.environment.set('ark_operations_user_id',user.id);",
+                  "pm.test('Database role and ownership', function () { pm.expect(user.role).to.eql('ARK_OPERATIONS'); pm.expect(user.status).to.eql('ACTIVE'); pm.expect(user.userType).to.eql('ARK'); pm.expect(user.clientId).to.eql(null); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Authenticate ARK_REPORT_VIEWER (ark_viewer)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": "{{oidc_issuer}}/protocol/openid-connect/token",
+            "description": "Local-demo password grant for public client; no client secret. Do not share token responses or export populated secrets.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{oidc_client_id}}"
+                },
+                {
+                  "key": "username",
+                  "value": "{{ark_viewer_username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{ark_viewer_password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.unset('ark_viewer_token');",
+                  "if (!pm.environment.get('ark_viewer_password')) { pm.execution.setNextRequest(null); throw new Error('Missing local ark_viewer_password. Import the private environment described in docs/GETTING_STARTED.md.'); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json();",
+                  "pm.test('Bearer access token issued', function () { pm.expect(arkResponse.token_type.toLowerCase()).to.eql('bearer'); pm.expect(typeof arkResponse.access_token).to.eql('string'); pm.expect(arkResponse.access_token.length > 20).to.eql(true); pm.expect(arkResponse.expires_in).to.be.above(0); });",
+                  "pm.environment.set('ark_viewer_token',arkResponse.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Current user: ark_viewer",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_viewer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/me",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const user=pm.response.json(); pm.environment.set('ark_viewer_user_id',user.id);",
+                  "pm.test('Database role and ownership', function () { pm.expect(user.role).to.eql('ARK_REPORT_VIEWER'); pm.expect(user.status).to.eql('ACTIVE'); pm.expect(user.userType).to.eql('ARK'); pm.expect(user.clientId).to.eql(null); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Discover own Client as Alpha administrator",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/me/clients",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Exactly the own active Client', function () { pm.expect(pm.response.json().map(c=>c.id)).to.eql([pm.environment.get('alpha_client_id')]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Clients and User Administration",
+      "description": "Safe administrative examples: discovery and listing, plus denied unapproved provisioning. No demo user roles/statuses or Client statuses are changed. Successful new identity binding requires trusted operator approval; no invitation, registration or provider-user creation endpoint exists.",
+      "item": [
+        {
+          "name": "Discover both demo Clients as ARK_ADMIN",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Both discovered Client IDs are accessible', function () { const ids=pm.response.json().map(c=>c.id); pm.expect(ids).to.include(pm.environment.get('alpha_client_id')); pm.expect(ids).to.include(pm.environment.get('beta_client_id')); pm.expect(pm.environment.get('alpha_client_id')).not.to.eql(pm.environment.get('beta_client_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List all application Users as ARK_ADMIN",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/users",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('All six roles present', function () { const roles=pm.response.json().map(u=>u.role); for(const role of ['CLIENT_ADMIN','CLIENT_MANAGER','CLIENT_REPORT_VIEWER','ARK_ADMIN','ARK_OPERATIONS','ARK_REPORT_VIEWER']) pm.expect(roles).to.include(role); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List own Client Users as CLIENT_ADMIN",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/users",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Only Alpha users', function () { const users=pm.response.json(); pm.expect(users.length).to.be.above(0); users.forEach(u=>pm.expect(u.clientId).to.eql(pm.environment.get('alpha_client_id'))); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unapproved identity binding is refused",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/users",
+            "description": "Expected denial: a trusted issuer alone does not prove subject ownership. A random subject has no operator approval.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"issuer\": \"{{oidc_issuer}}\",\n  \"subject\": \"reviewer-unapproved-{{$guid}}\",\n  \"userType\": \"CLIENT\",\n  \"clientId\": \"{{alpha_client_id}}\",\n  \"role\": \"CLIENT_MANAGER\",\n  \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', function () { pm.response.to.have.status(409); });",
+                  "if (pm.response.code !== 409) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(409); pm.expect(e.detail).to.be.a('string'); });",
+                  "pm.test('No identity enumeration', function () { pm.expect(pm.response.json().detail).to.eql('Identity binding unavailable'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Funds",
+      "description": "Creates one new Alpha Fund per run. Captured IDs are shared through the active environment. Run the final cleanup requests before starting another run after a partial failure.",
+      "item": [
+        {
+          "name": "Create workflow Fund as CLIENT_MANAGER",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Reviewer Fund {{run_label}}\",\n  \"description\": \"Temporary reviewer workflow; removed by collection cleanup.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get('fund_id') || pm.environment.get('investor_id')) { pm.execution.setNextRequest(null); throw new Error('Previous workflow IDs exist. Run the remaining workflow/cleanup before creating another Fund.'); }",
+                  "pm.environment.set('run_label',pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "if (pm.response.code !== 201) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json(); pm.test('Generated UUID', function () { pm.expect(arkResponse.id).to.match(/^[0-9a-f-]{36}$/i); }); pm.environment.set('fund_id',arkResponse.id); pm.environment.set('fund_name',pm.response.json().name);",
+                  "pm.test('USD fund', function () { pm.expect(arkResponse.currency).to.eql('USD'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read generated Fund",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Captured Fund returned', function () { pm.expect(pm.response.json().id).to.eql(pm.environment.get('fund_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Funds with pagination",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds?page=0&size=5",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Page contract', function () { const p=pm.response.json(); pm.expect(p.page).to.eql(0); pm.expect(p.size).to.eql(5); pm.expect(p.items).to.be.an('array'); pm.expect(p.items.length).to.be.at.most(5); pm.expect(p.totalElements).to.be.at.least(1); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Discover a seeded Beta Fund as ARK_OPERATIONS",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_operations_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{beta_client_id}}/funds?page=0&size=1",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const items=pm.response.json().items; pm.test('Beta seeded before collection run', function () { pm.expect(items.length).to.eql(1); }); if(!items.length) { pm.execution.setNextRequest(null); throw new Error('Run demo seed first.'); } pm.environment.set('beta_fund_id',items[0].id); pm.environment.set('beta_fund_name',items[0].name);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Investors and Participations",
+      "description": "Creates an Investor and associates it with the captured Fund. Participation is mandatory before recording a transaction. Repeat PUT is idempotent.",
+      "item": [
+        {
+          "name": "Create workflow Investor",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/investors",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Reviewer Investor {{run_label}}\",\n  \"email\": \"reviewer-{{run_label}}@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "if (pm.response.code !== 201) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json(); pm.test('Generated UUID', function () { pm.expect(arkResponse.id).to.match(/^[0-9a-f-]{36}$/i); }); pm.environment.set('investor_id',arkResponse.id); pm.environment.set('investor_name',pm.response.json().name);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Associate Investor with Fund",
+          "request": {
+            "method": "PUT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}/investors/{{investor_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repeat association safely",
+          "request": {
+            "method": "PUT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}/investors/{{investor_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Fund participants",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}/investors",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Only created Investor participates', function () { pm.expect(pm.response.json().items.map(i=>i.id)).to.eql([pm.environment.get('investor_id')]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "description": "Five positive string amounts demonstrate all transaction types. Credits: 1025.00. Debits: 115.00. Closing balance: 910.00 USD. Dates are fixed for reproducible interval reporting; each run has fresh resource IDs.",
+      "item": [
+        {
+          "name": "Create CONTRIBUTION (1000.00)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fundId\": \"{{fund_id}}\",\n  \"investorId\": \"{{investor_id}}\",\n  \"date\": \"2026-01-10\",\n  \"amount\": \"1000.00\",\n  \"type\": \"CONTRIBUTION\",\n  \"description\": \"Reviewer {{run_label}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "if (pm.response.code !== 201) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json(); pm.test('Generated UUID', function () { pm.expect(arkResponse.id).to.match(/^[0-9a-f-]{36}$/i); }); pm.environment.set('contribution_id',arkResponse.id);",
+                  "pm.test('Exact transaction fields', function () { pm.expect(arkResponse.amount).to.eql('1000.00'); pm.expect(arkResponse.type).to.eql('CONTRIBUTION'); pm.expect(arkResponse.fundId).to.eql(pm.environment.get('fund_id')); pm.expect(arkResponse.investorId).to.eql(pm.environment.get('investor_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create INTEREST_INCOME (25.00)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fundId\": \"{{fund_id}}\",\n  \"investorId\": \"{{investor_id}}\",\n  \"date\": \"2026-01-15\",\n  \"amount\": \"25.00\",\n  \"type\": \"INTEREST_INCOME\",\n  \"description\": \"Reviewer {{run_label}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "if (pm.response.code !== 201) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json(); pm.test('Generated UUID', function () { pm.expect(arkResponse.id).to.match(/^[0-9a-f-]{36}$/i); }); pm.environment.set('interest_id',arkResponse.id);",
+                  "pm.test('Exact transaction fields', function () { pm.expect(arkResponse.amount).to.eql('25.00'); pm.expect(arkResponse.type).to.eql('INTEREST_INCOME'); pm.expect(arkResponse.fundId).to.eql(pm.environment.get('fund_id')); pm.expect(arkResponse.investorId).to.eql(pm.environment.get('investor_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create DISTRIBUTION (100.00)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fundId\": \"{{fund_id}}\",\n  \"investorId\": \"{{investor_id}}\",\n  \"date\": \"2026-01-20\",\n  \"amount\": \"100.00\",\n  \"type\": \"DISTRIBUTION\",\n  \"description\": \"Reviewer {{run_label}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "if (pm.response.code !== 201) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json(); pm.test('Generated UUID', function () { pm.expect(arkResponse.id).to.match(/^[0-9a-f-]{36}$/i); }); pm.environment.set('distribution_id',arkResponse.id);",
+                  "pm.test('Exact transaction fields', function () { pm.expect(arkResponse.amount).to.eql('100.00'); pm.expect(arkResponse.type).to.eql('DISTRIBUTION'); pm.expect(arkResponse.fundId).to.eql(pm.environment.get('fund_id')); pm.expect(arkResponse.investorId).to.eql(pm.environment.get('investor_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create GENERAL_EXPENSE (10.00)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fundId\": \"{{fund_id}}\",\n  \"investorId\": \"{{investor_id}}\",\n  \"date\": \"2026-01-25\",\n  \"amount\": \"10.00\",\n  \"type\": \"GENERAL_EXPENSE\",\n  \"description\": \"Reviewer {{run_label}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "if (pm.response.code !== 201) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json(); pm.test('Generated UUID', function () { pm.expect(arkResponse.id).to.match(/^[0-9a-f-]{36}$/i); }); pm.environment.set('expense_id',arkResponse.id);",
+                  "pm.test('Exact transaction fields', function () { pm.expect(arkResponse.amount).to.eql('10.00'); pm.expect(arkResponse.type).to.eql('GENERAL_EXPENSE'); pm.expect(arkResponse.fundId).to.eql(pm.environment.get('fund_id')); pm.expect(arkResponse.investorId).to.eql(pm.environment.get('investor_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create MANAGEMENT_FEE (5.00)",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fundId\": \"{{fund_id}}\",\n  \"investorId\": \"{{investor_id}}\",\n  \"date\": \"2026-01-28\",\n  \"amount\": \"5.00\",\n  \"type\": \"MANAGEMENT_FEE\",\n  \"description\": \"Reviewer {{run_label}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "if (pm.response.code !== 201) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "const arkResponse=pm.response.json(); pm.test('Generated UUID', function () { pm.expect(arkResponse.id).to.match(/^[0-9a-f-]{36}$/i); }); pm.environment.set('fee_id',arkResponse.id);",
+                  "pm.test('Exact transaction fields', function () { pm.expect(arkResponse.amount).to.eql('5.00'); pm.expect(arkResponse.type).to.eql('MANAGEMENT_FEE'); pm.expect(arkResponse.fundId).to.eql(pm.environment.get('fund_id')); pm.expect(arkResponse.investorId).to.eql(pm.environment.get('investor_id')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List only this workflow ledger",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions?fundId={{fund_id}}&investorId={{investor_id}}&size=20",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Exactly five entries', function () { const p=pm.response.json(); pm.expect(p.totalElements).to.eql(5); pm.expect(p.items.length).to.eql(5); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Referenced participation cannot be removed",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}/investors/{{investor_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', function () { pm.response.to.have.status(409); });",
+                  "if (pm.response.code !== 409) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(409); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Financial Reports",
+      "description": "Reports use string money values and ledger arithmetic, not NAV or performance returns. Read access is separate from financial management. Interval begins after the contribution to demonstrate opening balance.",
+      "item": [
+        {
+          "name": "Full Fund report as CLIENT_REPORT_VIEWER",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_viewer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}/report",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Exact financial totals (strings, no float rounding)', function () { const r=pm.response.json(); pm.expect(r.currency).to.eql('USD'); pm.expect(r.totals.openingBalance).to.eql(\"0.00\"); pm.expect(r.totals.totalCredits).to.eql(\"1025.00\"); pm.expect(r.totals.totalDebits).to.eql(\"115.00\"); pm.expect(r.totals.netMovement).to.eql(\"910.00\"); pm.expect(r.totals.closingBalance).to.eql(\"910.00\"); pm.expect(r.totals.transactionCount).to.eql(5); pm.expect(r.from).to.eql(null); pm.expect(r.to).to.eql(null); });",
+                  "pm.test('All five type buckets', function () { const buckets=pm.response.json().totals.byType; pm.expect(buckets.length).to.eql(5); const expected={\"CONTRIBUTION\":\"1000.00\",\"INTEREST_INCOME\":\"25.00\",\"DISTRIBUTION\":\"100.00\",\"GENERAL_EXPENSE\":\"10.00\",\"MANAGEMENT_FEE\":\"5.00\"}; for(const [type,amount] of Object.entries(expected)) { const b=buckets.find(x=>x.type===type); pm.expect(b, type).to.exist; pm.expect(b.amount).to.eql(amount); pm.expect(b.transactionCount).to.eql(1); } });",
+                  "pm.test('Report names match persisted entities', function () { const r=pm.response.json(); pm.expect(r.fundId).to.eql(pm.environment.get('fund_id')); pm.expect(r.fundName).to.eql(pm.environment.get('fund_name')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Investor report filtered by Fund as ARK_REPORT_VIEWER",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_viewer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/investors/{{investor_id}}/report?fundId={{fund_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Exact financial totals (strings, no float rounding)', function () { const r=pm.response.json(); pm.expect(r.currency).to.eql('USD'); pm.expect(r.totals.openingBalance).to.eql(\"0.00\"); pm.expect(r.totals.totalCredits).to.eql(\"1025.00\"); pm.expect(r.totals.totalDebits).to.eql(\"115.00\"); pm.expect(r.totals.netMovement).to.eql(\"910.00\"); pm.expect(r.totals.closingBalance).to.eql(\"910.00\"); pm.expect(r.totals.transactionCount).to.eql(5); pm.expect(r.from).to.eql(null); pm.expect(r.to).to.eql(null); });",
+                  "pm.test('All five type buckets', function () { const buckets=pm.response.json().totals.byType; pm.expect(buckets.length).to.eql(5); const expected={\"CONTRIBUTION\":\"1000.00\",\"INTEREST_INCOME\":\"25.00\",\"DISTRIBUTION\":\"100.00\",\"GENERAL_EXPENSE\":\"10.00\",\"MANAGEMENT_FEE\":\"5.00\"}; for(const [type,amount] of Object.entries(expected)) { const b=buckets.find(x=>x.type===type); pm.expect(b, type).to.exist; pm.expect(b.amount).to.eql(amount); pm.expect(b.transactionCount).to.eql(1); } });",
+                  "pm.test('Investor and Fund filters echoed', function () { const r=pm.response.json(); pm.expect(r.investorId).to.eql(pm.environment.get('investor_id')); pm.expect(r.fundId).to.eql(pm.environment.get('fund_id')); });",
+                  "pm.test('Report names match persisted entities', function () { const r=pm.response.json(); pm.expect(r.fundId).to.eql(pm.environment.get('fund_id')); pm.expect(r.fundName).to.eql(pm.environment.get('fund_name')); pm.expect(r.investorId).to.eql(pm.environment.get('investor_id')); pm.expect(r.investorName).to.eql(pm.environment.get('investor_name')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Investor report across all Funds as ARK_REPORT_VIEWER",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_viewer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/investors/{{investor_id}}/report",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Exact financial totals (strings, no float rounding)', function () { const r=pm.response.json(); pm.expect(r.currency).to.eql('USD'); pm.expect(r.totals.openingBalance).to.eql(\"0.00\"); pm.expect(r.totals.totalCredits).to.eql(\"1025.00\"); pm.expect(r.totals.totalDebits).to.eql(\"115.00\"); pm.expect(r.totals.netMovement).to.eql(\"910.00\"); pm.expect(r.totals.closingBalance).to.eql(\"910.00\"); pm.expect(r.totals.transactionCount).to.eql(5); pm.expect(r.from).to.eql(null); pm.expect(r.to).to.eql(null); });",
+                  "pm.test('All five type buckets', function () { const buckets=pm.response.json().totals.byType; pm.expect(buckets.length).to.eql(5); const expected={\"CONTRIBUTION\":\"1000.00\",\"INTEREST_INCOME\":\"25.00\",\"DISTRIBUTION\":\"100.00\",\"GENERAL_EXPENSE\":\"10.00\",\"MANAGEMENT_FEE\":\"5.00\"}; for(const [type,amount] of Object.entries(expected)) { const b=buckets.find(x=>x.type===type); pm.expect(b, type).to.exist; pm.expect(b.amount).to.eql(amount); pm.expect(b.transactionCount).to.eql(1); } });",
+                  "pm.test('Persisted Investor name and explicit null Fund filter', function () { const r=pm.response.json(); pm.expect(r.investorId).to.eql(pm.environment.get('investor_id')); pm.expect(r.investorName).to.eql(pm.environment.get('investor_name')); pm.expect(r).to.have.property('fundId',null); pm.expect(r).to.have.property('fundName',null); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Period report with opening balance",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}/report?from=2026-01-15&to=2026-01-31",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Exact financial totals (strings, no float rounding)', function () { const r=pm.response.json(); pm.expect(r.currency).to.eql('USD'); pm.expect(r.totals.openingBalance).to.eql(\"1000.00\"); pm.expect(r.totals.totalCredits).to.eql(\"25.00\"); pm.expect(r.totals.totalDebits).to.eql(\"115.00\"); pm.expect(r.totals.netMovement).to.eql(\"-90.00\"); pm.expect(r.totals.closingBalance).to.eql(\"910.00\"); pm.expect(r.totals.transactionCount).to.eql(4); pm.expect(r.from).to.eql('2026-01-15'); pm.expect(r.to).to.eql('2026-01-31'); });",
+                  "pm.test('All five type buckets', function () { const buckets=pm.response.json().totals.byType; pm.expect(buckets.length).to.eql(5); const expected={\"CONTRIBUTION\":\"1000.00\",\"INTEREST_INCOME\":\"25.00\",\"DISTRIBUTION\":\"100.00\",\"GENERAL_EXPENSE\":\"10.00\",\"MANAGEMENT_FEE\":\"5.00\"}; for(const [type,amount] of Object.entries(expected)) { const b=buckets.find(x=>x.type===type); pm.expect(b, type).to.exist; pm.expect(b.amount).to.eql(type==='CONTRIBUTION'?'0.00':amount); pm.expect(b.transactionCount).to.eql(type==='CONTRIBUTION'?0:1); } });",
+                  "pm.test('Report names match persisted entities', function () { const r=pm.response.json(); pm.expect(r.fundId).to.eql(pm.environment.get('fund_id')); pm.expect(r.fundName).to.eql(pm.environment.get('fund_name')); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "RBAC and Client Isolation",
+      "description": "Expected failures are passing assertions. No implicit ARK_ADMIN financial privilege. Cross-Client access is 404. Final requests clean only the IDs created in this run; seeded fixtures and Docker volumes are preserved.",
+      "item": [
+        {
+          "name": "Missing Bearer token is unauthorized",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": "{{api_url}}/me",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "if (pm.response.code !== 401) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(401); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLIENT_MANAGER cannot list Users",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/users",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.code !== 403) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(403); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLIENT_REPORT_VIEWER cannot create Funds",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_viewer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Must not be created\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.code !== 403) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(403); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ARK_ADMIN cannot read financial resources",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.code !== 403) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(403); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ARK_ADMIN cannot run reports",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}/report",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.code !== 403) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(403); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ARK_REPORT_VIEWER cannot delete Transactions",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_viewer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions/{{contribution_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.code !== 403) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(403); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ARK_OPERATIONS cannot administer Users",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_operations_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/users",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });",
+                  "if (pm.response.code !== 403) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(403); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Alpha user cannot access Beta Client",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{beta_client_id}}/funds",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', function () { pm.response.to.have.status(404); });",
+                  "if (pm.response.code !== 404) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(404); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Beta user cannot see Alpha Fund through own Client",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{beta_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{beta_client_id}}/funds/{{fund_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', function () { pm.response.to.have.status(404); });",
+                  "if (pm.response.code !== 404) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "pm.test('Problem response', function () { const e=pm.response.json(); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'); pm.expect(e.status).to.eql(404); pm.expect(e.detail).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Beta administrator reads own Client Funds",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{beta_admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{beta_client_id}}/funds?page=0&size=1",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ARK_REPORT_VIEWER reads Beta Fund report",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ark_viewer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{beta_client_id}}/funds/{{beta_fund_id}}/report",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Beta report ownership', function () { const r=pm.response.json(); pm.expect(r.fundId).to.eql(pm.environment.get('beta_fund_id')); pm.expect(r.currency).to.eql('USD'); pm.expect(r.totals.closingBalance).to.match(/^-?\\d+\\.\\d{2}$/); });",
+                  "pm.test('Report names match persisted entities', function () { const r=pm.response.json(); pm.expect(r.fundId).to.eql(pm.environment.get('beta_fund_id')); pm.expect(r.fundName).to.eql(pm.environment.get('beta_fund_name')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete workflow CONTRIBUTION",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions/{{contribution_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.environment.unset('contribution_id');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete workflow INTEREST_INCOME",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions/{{interest_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.environment.unset('interest_id');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete workflow DISTRIBUTION",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions/{{distribution_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.environment.unset('distribution_id');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete workflow GENERAL_EXPENSE",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions/{{expense_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.environment.unset('expense_id');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete workflow MANAGEMENT_FEE",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/transactions/{{fee_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.environment.unset('fee_id');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: Fund report is zero after deletion",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_viewer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}/report",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code !== 200) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.test('Deletion changes historical reports', function () { const t=pm.response.json().totals; pm.expect(t.closingBalance).to.eql('0.00'); pm.expect(t.transactionCount).to.eql(0); });",
+                  "pm.test('Report names match persisted entities', function () { const r=pm.response.json(); pm.expect(r.fundId).to.eql(pm.environment.get('fund_id')); pm.expect(r.fundName).to.eql(pm.environment.get('fund_name')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: remove workflow Participation",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}/investors/{{investor_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete workflow Investor",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/investors/{{investor_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.environment.unset('investor_id');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete workflow Fund",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alpha_manager_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": "{{api_url}}/clients/{{alpha_client_id}}/funds/{{fund_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', function () { pm.response.to.have.status(204); });",
+                  "if (pm.response.code !== 204) { pm.execution.setNextRequest(null); throw new Error('Unexpected status; stop and inspect this request. Captured IDs are retained for cleanup.'); }",
+                  "",
+                  "pm.environment.unset('fund_id'); pm.environment.unset('run_label');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

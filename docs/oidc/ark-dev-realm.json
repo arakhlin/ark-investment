@@ -1,0 +1,100 @@
+{
+  "realm": "ark-dev",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "ark-local-cli",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "ark-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "ark-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "d4e42c00-b28f-4a15-9f02-5f28783f5931",
+      "username": "alpha-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "alpha-admin@example.com",
+      "firstName": "alpha-admin",
+      "lastName": "Demo",
+      "requiredActions": []
+    },
+    {
+      "id": "d4e42c00-b28f-4a15-9f02-5f28783f5932",
+      "username": "alpha-manager",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "alpha-manager@example.com",
+      "firstName": "alpha-manager",
+      "lastName": "Demo",
+      "requiredActions": []
+    },
+    {
+      "id": "d4e42c00-b28f-4a15-9f02-5f28783f5933",
+      "username": "alpha-viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "alpha-viewer@example.com",
+      "firstName": "alpha-viewer",
+      "lastName": "Demo",
+      "requiredActions": []
+    },
+    {
+      "id": "d4e42c00-b28f-4a15-9f02-5f28783f5934",
+      "username": "beta-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "beta-admin@example.com",
+      "firstName": "beta-admin",
+      "lastName": "Demo",
+      "requiredActions": []
+    },
+    {
+      "id": "d4e42c00-b28f-4a15-9f02-5f28783f5935",
+      "username": "ark-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "ark-admin@example.com",
+      "firstName": "ark-admin",
+      "lastName": "Demo",
+      "requiredActions": []
+    },
+    {
+      "id": "d4e42c00-b28f-4a15-9f02-5f28783f5936",
+      "username": "ark-operations",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "ark-operations@example.com",
+      "firstName": "ark-operations",
+      "lastName": "Demo",
+      "requiredActions": []
+    },
+    {
+      "id": "d4e42c00-b28f-4a15-9f02-5f28783f5937",
+      "username": "ark-viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "ark-viewer@example.com",
+      "firstName": "ark-viewer",
+      "lastName": "Demo",
+      "requiredActions": []
+    }
+  ]
+}

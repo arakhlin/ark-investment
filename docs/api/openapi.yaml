@@ -1,0 +1,1852 @@
+---
+openapi: 3.0.3
+info:
+  title: Ark Investment API
+  version: 2.0.0
+  description: |-
+    REST contract for ARKAPI-3 under Epic ARKAPI-1, informed by ARKAPI-2 through ARKAPI-7. Implemented backend scope: no frontend, valuation, return calculations, automated fees, or accounting integrations.
+
+    Assumptions requiring business review:
+    - All funds use USD with two decimal places. Monetary values are JSON strings for exact BigDecimal parsing; no float/double representation or implicit rounding. Transaction amounts use DECIMAL(18,2) precision: 1–16 integer digits and exactly two fractional digits, from 0.01 to 9999999999999999.99. Report aggregates retain two fractional digits but have no per-transaction integer-digit cap. Inputs exceeding precision/scale are rejected. Currency is server supplied and immutable.
+    - Fund–investor participation is explicit and many-to-many. Associate existing resources before posting transactions. Each transaction has exactly one fund and one investor, including expenses and fees. Shared fund expenses must be allocated into separate investor-owned transactions by the caller; no automatic allocation or unassigned fund-level entries.
+    - Contributions and interest income add to the ledger; distributions, general expenses, and management fees subtract. Amounts are positive magnitudes and direction is derived only from type. Negative balances are permitted; there is no overdraft/available-funds validation. Balances start at zero, with no stored editable balance, opening capital field, NAV, market value, or performance interpretation.
+    - Reporting: select owners first. openingBalance = signed sum of matching entries strictly before from, or zero if from is absent. totalCredits and totalDebits = positive sums within the inclusive [from,to] interval (unbounded when a bound is absent). netMovement = totalCredits - totalDebits. closingBalance = openingBalance + netMovement. transactionCount and byType cover only the interval. No upper bound includes all recorded entries, including future dates. An absent from/to is echoed as null. Reports read a consistent view within one request.
+    - Dates are ISO calendar dates without times/time zones. Past and future dates are allowed; dates do not schedule execution. All entries are immediately part of the ledger.
+    - Corrections use PUT or DELETE through the existing REST API, and recompute historical reports. Ownership is immutable; correcting owners requires deleting the old entry then creating a new one (not atomic across requests). Successful CREATE/UPDATE/DELETE operations append application-level audit snapshots atomically with the ledger change; history survives hard deletion. Authenticated actor identity and client ownership are recorded; no audit endpoint or tamper-proof retention is provided; direct SQL bypasses auditing. No reversal workflow, optimistic locking, or idempotency keys. Financial production use would require revisiting these choices.
+    - Fund/investor deletion is blocked while any membership or transaction references remain. Membership removal is blocked while transactions for that pair remain. Referential checks and each write must be atomic.
+    - JWT bearer authentication is required. Select an authorized client explicitly in the path. Database user type, role and direct Client ownership determine access; token role claims and caller-supplied user identifiers do not grant access. Unknown/inaccessible clients and foreign objects return 404.
+
+    Conventions: JSON request/response bodies; errors use application/problem+json. Unknown input fields and explicit nulls in write bodies are rejected; omit optional fields instead. Response fields explicitly marked nullable may contain null. Names must contain a non-whitespace character. PUT replaces mutable fields and does not create missing resources. No PATCH or bulk endpoints. Server-generated ids are UUIDs. Financial resource lists are paginated with stable ordering absent concurrent writes. Identity and administration lists are unpaginated arrays ordered by id; page/size query parameters have no effect. 401 covers absent/invalid authentication, 403 insufficient client role, 400 covers schema and cross-field validation, 404 missing resources, 409 state conflicts, 415 unsupported request content type, and 500 unexpected failures. Error responses omit stack traces and sensitive details.
+servers:
+- url: http://localhost:8080/api/v1
+  description: Local demonstration server.
+security:
+- bearerAuth: []
+tags:
+- name: Funds
+  description: Fund CRUD.
+- name: Investors
+  description: Investor CRUD.
+- name: Participation
+  description: Explicit many-to-many fund membership.
+- name: Transactions
+  description: Investor-owned fund ledger entries.
+- name: Reports
+  description: Basic ledger totals and balances.
+- name: Identity
+  description: Authenticated identity and Client/User administration.
+paths:
+  "/clients/{clientId}/funds":
+    get:
+      tags:
+      - Funds
+      operationId: listFunds
+      summary: List funds
+      description: |-
+        Ordered by id ascending. Empty results return 200 with an empty items array. Pagination is not a snapshot across requests.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      parameters:
+      - "$ref": "#/components/parameters/Page"
+      - "$ref": "#/components/parameters/Size"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FundPage"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+    post:
+      tags:
+      - Funds
+      operationId: createFund
+      summary: Create fund
+      description: |-
+        Names and investor emails need not be unique. POST retries may create duplicates; no idempotency-key support is included.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/FundInput"
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Fund"
+          headers:
+            Location:
+              description: URI of the created resource.
+              schema:
+                type: string
+                example: "/api/v1/clients/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/funds/11111111-1111-4111-8111-111111111111"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '415':
+          "$ref": "#/components/responses/UnsupportedMediaType"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+  "/clients/{clientId}/funds/{fundId}":
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+    - "$ref": "#/components/parameters/fundId"
+    get:
+      tags:
+      - Funds
+      operationId: getFund
+      summary: Get fund
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Fund"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      description: |2-
+
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+    put:
+      tags:
+      - Funds
+      operationId: replaceFund
+      summary: Replace fund
+      description: |-
+        Full replacement of mutable fields; omitted optional fields are cleared. No upsert; unknown id returns 404. Concurrent writes use last-write-wins.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/FundInput"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Fund"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '415':
+          "$ref": "#/components/responses/UnsupportedMediaType"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+    delete:
+      tags:
+      - Funds
+      operationId: deleteFund
+      summary: Delete fund
+      description: |-
+        Hard delete only when no participation or transaction references exist; otherwise 409. No cascading deletion. Unknown id returns 404.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      responses:
+        '204':
+          description: Deleted; no response body.
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+  "/clients/{clientId}/investors":
+    get:
+      tags:
+      - Investors
+      operationId: listInvestors
+      summary: List investors
+      description: |-
+        Ordered by id ascending. Empty results return 200 with an empty items array. Pagination is not a snapshot across requests.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      parameters:
+      - "$ref": "#/components/parameters/Page"
+      - "$ref": "#/components/parameters/Size"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/InvestorPage"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+    post:
+      tags:
+      - Investors
+      operationId: createInvestor
+      summary: Create investor
+      description: |-
+        Names and investor emails need not be unique. POST retries may create duplicates; no idempotency-key support is included.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/InvestorInput"
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Investor"
+          headers:
+            Location:
+              description: URI of the created resource.
+              schema:
+                type: string
+                example: "/api/v1/clients/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/investors/11111111-1111-4111-8111-111111111111"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '415':
+          "$ref": "#/components/responses/UnsupportedMediaType"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+  "/clients/{clientId}/investors/{investorId}":
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+    - "$ref": "#/components/parameters/investorId"
+    get:
+      tags:
+      - Investors
+      operationId: getInvestor
+      summary: Get investor
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Investor"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      description: |2-
+
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+    put:
+      tags:
+      - Investors
+      operationId: replaceInvestor
+      summary: Replace investor
+      description: |-
+        Full replacement of mutable fields; omitted optional fields are cleared. No upsert; unknown id returns 404. Concurrent writes use last-write-wins.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/InvestorInput"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Investor"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '415':
+          "$ref": "#/components/responses/UnsupportedMediaType"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+    delete:
+      tags:
+      - Investors
+      operationId: deleteInvestor
+      summary: Delete investor
+      description: |-
+        Hard delete only when no participation or transaction references exist; otherwise 409. No cascading deletion. Unknown id returns 404.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      responses:
+        '204':
+          description: Deleted; no response body.
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+  "/clients/{clientId}/funds/{fundId}/investors":
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+    - "$ref": "#/components/parameters/fundId"
+    get:
+      tags:
+      - Participation
+      operationId: listFundInvestors
+      summary: List investors participating in a fund
+      description: |-
+        Includes participants with no transactions. Ordered by investor id ascending.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      parameters:
+      - "$ref": "#/components/parameters/Page"
+      - "$ref": "#/components/parameters/Size"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/InvestorPage"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+  "/clients/{clientId}/investors/{investorId}/funds":
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+    - "$ref": "#/components/parameters/investorId"
+    get:
+      tags:
+      - Participation
+      operationId: listInvestorFunds
+      summary: List funds for an investor
+      description: |-
+        Includes memberships with no transactions. Ordered by fund id ascending.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      parameters:
+      - "$ref": "#/components/parameters/Page"
+      - "$ref": "#/components/parameters/Size"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FundPage"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+  "/clients/{clientId}/funds/{fundId}/investors/{investorId}":
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+    - "$ref": "#/components/parameters/fundId"
+    - "$ref": "#/components/parameters/investorId"
+    put:
+      tags:
+      - Participation
+      operationId: addParticipation
+      summary: Associate an existing investor with an existing fund
+      description: |-
+        Idempotent association; both resources must exist. Returns 204 whether newly associated or already associated. No request body.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      responses:
+        '204':
+          description: Participation exists; no response body.
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+    delete:
+      tags:
+      - Participation
+      operationId: removeParticipation
+      summary: Remove an investor from a fund
+      description: |-
+        409 if any transaction belongs to this pair. If both resources exist, an absent association also returns 204. Resource absence returns 404.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      responses:
+        '204':
+          description: Participation absent; no response body.
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+  "/clients/{clientId}/transactions":
+    get:
+      tags:
+      - Transactions
+      operationId: listTransactions
+      summary: List and filter transactions
+      description: |-
+        Filters combine with AND. Ordered by date descending, then id ascending. Empty results return 200. Unknown filter resource returns 404 even if no transactions match. Pagination is not a snapshot.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      parameters:
+      - "$ref": "#/components/parameters/Page"
+      - "$ref": "#/components/parameters/Size"
+      - "$ref": "#/components/parameters/fundIdFilter"
+      - "$ref": "#/components/parameters/investorIdFilter"
+      - "$ref": "#/components/parameters/Type"
+      - "$ref": "#/components/parameters/from"
+      - "$ref": "#/components/parameters/to"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/TransactionPage"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+    post:
+      tags:
+      - Transactions
+      operationId: createTransaction
+      summary: Create a transaction
+      description: |-
+        Both owners must exist and the investor must participate in the fund (409 otherwise). Amount must exceed 0.00. Duplicate-looking entries are allowed; POST is not idempotent.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/TransactionInput"
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Transaction"
+          headers:
+            Location:
+              description: Created transaction URI.
+              schema:
+                type: string
+                example: "/api/v1/clients/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/transactions/33333333-3333-4333-8333-333333333333"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '415':
+          "$ref": "#/components/responses/UnsupportedMediaType"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+  "/clients/{clientId}/transactions/{transactionId}":
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+    - "$ref": "#/components/parameters/transactionId"
+    get:
+      tags:
+      - Transactions
+      operationId: getTransaction
+      summary: Get a transaction
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Transaction"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+      description: |2-
+
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+    put:
+      tags:
+      - Transactions
+      operationId: replaceTransaction
+      summary: Correct a transaction
+      description: |-
+        Full replacement, no upsert. fundId and investorId must equal stored owners (409 for a change); correct date, amount, type or description. Omitted description is cleared. Reports immediately reflect the correction. Last-write-wins; successful updates atomically append before/after audit snapshots.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/TransactionInput"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Transaction"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+        '415':
+          "$ref": "#/components/responses/UnsupportedMediaType"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+    delete:
+      tags:
+      - Transactions
+      operationId: deleteTransaction
+      summary: Delete an erroneous transaction
+      description: |-
+        Hard deletion immediately removes the entry from all reports, including historical reports. Unknown id returns 404. Audit history is retained atomically after deletion; no reversal workflow.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER or ARK_OPERATIONS. Foreign-client identifiers return 404.
+      responses:
+        '204':
+          description: Deleted; no response body.
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+  "/clients/{clientId}/funds/{fundId}/report":
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+    - "$ref": "#/components/parameters/fundId"
+    get:
+      tags:
+      - Reports
+      operationId: getFundReport
+      summary: Get fund ledger report
+      description: |-
+        Aggregate over all matching transactions, independent of pagination. Includes every investor in the fund. Bounds are inclusive transaction dates. See balance formulas in API description. Zero activity returns all five type buckets with zero totals.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER, CLIENT_REPORT_VIEWER, ARK_OPERATIONS or ARK_REPORT_VIEWER. Foreign-client identifiers return 404.
+      parameters:
+      - "$ref": "#/components/parameters/from"
+      - "$ref": "#/components/parameters/to"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/FundReport"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+  "/clients/{clientId}/investors/{investorId}/report":
+    parameters:
+    - "$ref": "#/components/parameters/clientId"
+    - "$ref": "#/components/parameters/investorId"
+    get:
+      tags:
+      - Reports
+      operationId: getInvestorReport
+      summary: Get investor ledger report
+      description: |-
+        Aggregate over all matching transactions, independent of pagination. Includes all funds unless fundId is supplied; an existing fund with no matching transactions yields a zero report. Bounds are inclusive transaction dates. See balance formulas in API description. Zero activity returns all five type buckets with zero totals.
+        Required role: CLIENT_ADMIN, CLIENT_MANAGER, CLIENT_REPORT_VIEWER, ARK_OPERATIONS or ARK_REPORT_VIEWER. Foreign-client identifiers return 404.
+      parameters:
+      - "$ref": "#/components/parameters/from"
+      - "$ref": "#/components/parameters/to"
+      - "$ref": "#/components/parameters/fundIdFilter"
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/InvestorReport"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+  "/me":
+    get:
+      tags:
+      - Identity
+      operationId: getMe
+      summary: Get authenticated application identity
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AppUser"
+  "/me/clients":
+    get:
+      tags:
+      - Identity
+      operationId: getMyClients
+      summary: Discover accessible active Clients
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Client"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+  "/clients":
+    get:
+      tags:
+      - Identity
+      operationId: listClients
+      description: Unpaginated array ordered by id. Pagination query parameters are ignored. ARK_ADMIN may list Users of suspended Clients; CLIENT users require an active own Client.
+      summary: Discover accessible active Clients
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Client"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+    post:
+      tags:
+      - Identity
+      operationId: createClient
+      summary: Create Client (ARK_ADMIN)
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '201':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Client"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ClientChange"
+  "/clients/{clientId}":
+    parameters:
+    - name: clientId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    put:
+      tags:
+      - Identity
+      operationId: replaceClient
+      summary: Administer Client (ARK_ADMIN)
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Client"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/ClientChange"
+  "/users":
+    get:
+      tags:
+      - Identity
+      operationId: listUsers
+      description: Unpaginated array ordered by id. Pagination query parameters are ignored. ARK_ADMIN may list Users of suspended Clients; CLIENT users require an active own Client.
+      summary: List all Users (ARK_ADMIN)
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/AppUser"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+    post:
+      tags:
+      - Identity
+      operationId: createUser
+      summary: Provision User (ARK_ADMIN or own CLIENT_ADMIN)
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '201':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AppUser"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/NewUser"
+  "/users/{userId}":
+    parameters:
+    - name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    put:
+      tags:
+      - Identity
+      operationId: changeUser
+      summary: Change role/status (ARK_ADMIN); ownership and identity immutable
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '204':
+          description: Success.
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/UserChange"
+  "/clients/{clientId}/users":
+    parameters:
+    - name: clientId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    get:
+      tags:
+      - Identity
+      operationId: listClientUsers
+      description: Unpaginated array ordered by id. Pagination query parameters are ignored. ARK_ADMIN may list Users of suspended Clients; CLIENT users require an active own Client.
+      summary: List own Client Users (CLIENT_ADMIN or ARK_ADMIN)
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/AppUser"
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+  "/clients/{clientId}/users/{userId}":
+    parameters:
+    - name: clientId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    put:
+      tags:
+      - Identity
+      operationId: changeClientUser
+      summary: Change own Client User role/status; preserve last active administrator
+      responses:
+        '500':
+          "$ref": "#/components/responses/InternalError"
+        '204':
+          description: Success.
+        '400':
+          "$ref": "#/components/responses/BadRequest"
+        '401':
+          "$ref": "#/components/responses/Unauthorized"
+        '403':
+          "$ref": "#/components/responses/Forbidden"
+        '404':
+          "$ref": "#/components/responses/NotFound"
+        '409':
+          "$ref": "#/components/responses/Conflict"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/UserChange"
+components:
+  parameters:
+    fundId:
+      name: fundId
+      in: path
+      required: true
+      description: Resource UUID.
+      schema:
+        type: string
+        format: uuid
+    investorId:
+      name: investorId
+      in: path
+      required: true
+      description: Resource UUID.
+      schema:
+        type: string
+        format: uuid
+    transactionId:
+      name: transactionId
+      in: path
+      required: true
+      description: Resource UUID.
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      description: Zero-based page index.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      description: Maximum items per page.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    from:
+      name: from
+      in: query
+      description: Inclusive transaction-date lower bound. Omitted means all history.
+        Must be <= to when both are supplied.
+      schema:
+        type: string
+        format: date
+        example: '2026-11-06'
+    to:
+      name: to
+      in: query
+      description: Inclusive transaction-date upper bound. Omitted means no upper
+        bound.
+      schema:
+        type: string
+        format: date
+        example: '2026-11-06'
+    fundIdFilter:
+      name: fundId
+      in: query
+      description: Filter by existing fundId. Unknown resource returns 404.
+      schema:
+        type: string
+        format: uuid
+    investorIdFilter:
+      name: investorId
+      in: query
+      description: Filter by existing investorId. Unknown resource returns 404.
+      schema:
+        type: string
+        format: uuid
+    Type:
+      name: type
+      in: query
+      description: Filter by transaction type.
+      schema:
+        "$ref": "#/components/schemas/TransactionType"
+    clientId:
+      name: clientId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Explicit client selection; authorized using the authenticated identity
+        and database-backed user type, role and Client ownership.
+  responses:
+    BadRequest:
+      description: Malformed JSON, invalid UUID/date/enum, unknown fields, invalid
+        pagination, nonpositive amount, or from > to.
+      content:
+        application/problem+json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+          example:
+            type: about:blank
+            title: BadRequest
+            status: 400
+            detail: Malformed JSON, invalid UUID/date/enum, unknown fields, invalid
+              pagination, nonpositive amount, or from > to.
+    NotFound:
+      description: Requested resource or referenced fund/investor does not exist.
+      content:
+        application/problem+json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+          example:
+            type: about:blank
+            title: NotFound
+            status: 404
+            detail: Requested resource or referenced fund/investor does not exist.
+    Conflict:
+      description: Participation required, ownership change attempted, or deletion
+        blocked by existing participation/transactions.
+      content:
+        application/problem+json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+          example:
+            type: about:blank
+            title: Conflict
+            status: 409
+            detail: Participation required, ownership change attempted, or deletion
+              blocked by existing participation/transactions.
+    UnsupportedMediaType:
+      description: Request body must use application/json.
+      content:
+        application/problem+json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+          example:
+            type: about:blank
+            title: UnsupportedMediaType
+            status: 415
+            detail: Request body must use application/json.
+    InternalError:
+      description: Unexpected server failure; internal implementation details are
+        not exposed.
+      content:
+        application/problem+json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+          example:
+            type: about:blank
+            title: InternalError
+            status: 500
+            detail: Unexpected server failure; internal implementation details are
+              not exposed.
+    Unauthorized:
+      description: Missing or invalid JWT, unknown or disabled application identity.
+      content:
+        application/problem+json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+    Forbidden:
+      description: Active client member lacks permission.
+      content:
+        application/problem+json:
+          schema:
+            "$ref": "#/components/schemas/Error"
+  schemas:
+    Id:
+      type: string
+      format: uuid
+    Amount:
+      type: string
+      pattern: "^(?!0\\.00$)(0|[1-9][0-9]{0,15})\\.[0-9]{2}(?![\\s\\S])"
+      maxLength: 19
+      description: 'Exact positive decimal with two fractional digits and at most
+        16 integer digits (DECIMAL(18,2) compatible): 0.01 through 9999999999999999.99
+        inclusive. Only ASCII digits and a literal decimal point are accepted; no
+        sign, leading zeros (except the single integer zero), whitespace, exponent
+        notation, or rounding. Zero is rejected. The final negative lookahead enforces
+        the absolute end of the string, including rejection of trailing line terminators.
+        Parse directly as BigDecimal; never convert through binary floating point.'
+      example: '1250.00'
+    Balance:
+      type: string
+      pattern: "^(?!-0\\.00$)-?(0|[1-9][0-9]*)\\.[0-9]{2}(?![\\s\\S])"
+      description: Exact signed aggregate decimal; parse as BigDecimal. Aggregates
+        are not restricted to the per-transaction precision. Exactly two fractional
+        ASCII digits and a literal decimal point are required, with no whitespace,
+        exponent notation, plus sign, or leading zeros except a single integer zero.
+        Negative values are allowed; zero is serialized only as 0.00, never -0.00.
+      example: '1200.00'
+    Currency:
+      type: string
+      enum:
+      - USD
+      description: Single accounting currency; no currency conversion.
+    FundInput:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: "\\S"
+          example: Ark Growth Fund
+        description:
+          type: string
+          maxLength: 1000
+    InvestorInput:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - email
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: "\\S"
+          example: Alex Investor
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: alex@example.com
+    TransactionType:
+      type: string
+      enum:
+      - CONTRIBUTION
+      - INTEREST_INCOME
+      - DISTRIBUTION
+      - GENERAL_EXPENSE
+      - MANAGEMENT_FEE
+      description: CONTRIBUTION and INTEREST_INCOME are credits (+). DISTRIBUTION,
+        GENERAL_EXPENSE and MANAGEMENT_FEE are debits (-). This sign applies identically
+        to fund and investor ledger reports.
+    TransactionInput:
+      type: object
+      additionalProperties: false
+      required:
+      - fundId
+      - investorId
+      - date
+      - amount
+      - type
+      properties:
+        fundId:
+          "$ref": "#/components/schemas/Id"
+        investorId:
+          "$ref": "#/components/schemas/Id"
+        date:
+          type: string
+          format: date
+          example: '2026-11-06'
+        amount:
+          "$ref": "#/components/schemas/Amount"
+        type:
+          "$ref": "#/components/schemas/TransactionType"
+        description:
+          type: string
+          maxLength: 1000
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+      - type
+      - title
+      - status
+      - detail
+      properties:
+        type:
+          type: string
+          format: uri
+          example: about:blank
+        title:
+          type: string
+          example: Invalid request
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+          example: 400
+        detail:
+          type: string
+          example: amount must be greater than 0.00
+        instance:
+          type: string
+          example: "/api/v1/clients/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/transactions"
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - field
+            - message
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+    ReportTotals:
+      type: object
+      additionalProperties: false
+      required:
+      - openingBalance
+      - totalCredits
+      - totalDebits
+      - netMovement
+      - closingBalance
+      - transactionCount
+      - byType
+      properties:
+        openingBalance:
+          "$ref": "#/components/schemas/Balance"
+        totalCredits:
+          "$ref": "#/components/schemas/AmountTotal"
+        totalDebits:
+          "$ref": "#/components/schemas/AmountTotal"
+        netMovement:
+          "$ref": "#/components/schemas/Balance"
+        closingBalance:
+          "$ref": "#/components/schemas/Balance"
+        transactionCount:
+          type: integer
+          format: int64
+          minimum: 0
+        byType:
+          type: array
+          minItems: 5
+          maxItems: 5
+          description: Exactly one entry for each of the five transaction types, including
+            zero totals.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - amount
+            - transactionCount
+            properties:
+              type:
+                "$ref": "#/components/schemas/TransactionType"
+              amount:
+                "$ref": "#/components/schemas/AmountTotal"
+              transactionCount:
+                type: integer
+                format: int64
+                minimum: 0
+    AmountTotal:
+      type: string
+      pattern: "^(0|[1-9][0-9]*)\\.[0-9]{2}(?![\\s\\S])"
+      description: Nonnegative exact aggregate decimal without a per-transaction integer-digit
+        or precision cap. Exactly two fractional ASCII digits and a literal decimal
+        point are required; zero is allowed. No sign, whitespace, exponent notation,
+        or leading zeros except a single integer zero.
+      example: '1250.00'
+    Fund:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - currency
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: "\\S"
+          example: Ark Growth Fund
+        description:
+          type: string
+          maxLength: 1000
+        currency:
+          allOf:
+          - "$ref": "#/components/schemas/Currency"
+          readOnly: true
+      example:
+        id: 11111111-1111-4111-8111-111111111111
+        name: Ark Growth Fund
+        description: Long-term growth portfolio
+        currency: USD
+    Investor:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - email
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: "\\S"
+          example: Alex Investor
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: alex@example.com
+      example:
+        id: 22222222-2222-4222-8222-222222222222
+        name: Alex Investor
+        email: alex@example.com
+    Transaction:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - fundId
+      - investorId
+      - date
+      - amount
+      - type
+      - currency
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        fundId:
+          "$ref": "#/components/schemas/Id"
+        investorId:
+          "$ref": "#/components/schemas/Id"
+        date:
+          type: string
+          format: date
+          example: '2026-11-06'
+        amount:
+          "$ref": "#/components/schemas/Amount"
+        type:
+          "$ref": "#/components/schemas/TransactionType"
+        description:
+          type: string
+          maxLength: 1000
+        currency:
+          allOf:
+          - "$ref": "#/components/schemas/Currency"
+          readOnly: true
+      example:
+        id: 33333333-3333-4333-8333-333333333333
+        fundId: 11111111-1111-4111-8111-111111111111
+        investorId: 22222222-2222-4222-8222-222222222222
+        date: '2026-11-06'
+        amount: '1250.00'
+        type: CONTRIBUTION
+        currency: USD
+    FundPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      - totalPages
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Fund"
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    InvestorPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      - totalPages
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Investor"
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    TransactionPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      - totalPages
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Transaction"
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    FundReport:
+      type: object
+      additionalProperties: false
+      required:
+      - fundId
+      - fundName
+      - currency
+      - from
+      - to
+      - totals
+      properties:
+        fundId:
+          "$ref": "#/components/schemas/Id"
+        fundName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Current name of the report fund.
+        currency:
+          "$ref": "#/components/schemas/Currency"
+        from:
+          type: string
+          format: date
+          example: '2026-11-06'
+          nullable: true
+          description: Inclusive start date; null when all history is included.
+        to:
+          type: string
+          format: date
+          example: '2026-11-06'
+          nullable: true
+          description: Inclusive end date; null when no upper bound is applied.
+        totals:
+          "$ref": "#/components/schemas/ReportTotals"
+      example:
+        fundId: 11111111-1111-4111-8111-111111111111
+        fundName: Growth Fund
+        currency: USD
+        from:
+        to:
+        totals:
+          openingBalance: '0.00'
+          totalCredits: '1250.00'
+          totalDebits: '50.00'
+          netMovement: '1200.00'
+          closingBalance: '1200.00'
+          transactionCount: 2
+          byType:
+          - type: CONTRIBUTION
+            amount: '1250.00'
+            transactionCount: 1
+          - type: INTEREST_INCOME
+            amount: '0.00'
+            transactionCount: 0
+          - type: DISTRIBUTION
+            amount: '0.00'
+            transactionCount: 0
+          - type: GENERAL_EXPENSE
+            amount: '0.00'
+            transactionCount: 0
+          - type: MANAGEMENT_FEE
+            amount: '50.00'
+            transactionCount: 1
+    InvestorReport:
+      type: object
+      additionalProperties: false
+      required:
+      - investorId
+      - investorName
+      - fundId
+      - fundName
+      - currency
+      - from
+      - to
+      - totals
+      properties:
+        investorId:
+          "$ref": "#/components/schemas/Id"
+        investorName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Current name of the report investor.
+        fundId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Fund filter or null for all funds.
+        fundName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          nullable: true
+          description: Current name of the filtered fund; null when no fundId filter is supplied.
+        currency:
+          "$ref": "#/components/schemas/Currency"
+        from:
+          type: string
+          format: date
+          example: '2026-11-06'
+          nullable: true
+          description: Inclusive start date; null when all history is included.
+        to:
+          type: string
+          format: date
+          example: '2026-11-06'
+          nullable: true
+          description: Inclusive end date; null when no upper bound is applied.
+        totals:
+          "$ref": "#/components/schemas/ReportTotals"
+      example:
+        investorId: 22222222-2222-4222-8222-222222222222
+        investorName: Jane Smith
+        fundId:
+        fundName:
+        currency: USD
+        from:
+        to:
+        totals:
+          openingBalance: '0.00'
+          totalCredits: '1250.00'
+          totalDebits: '50.00'
+          netMovement: '1200.00'
+          closingBalance: '1200.00'
+          transactionCount: 2
+          byType:
+          - type: CONTRIBUTION
+            amount: '1250.00'
+            transactionCount: 1
+          - type: INTEREST_INCOME
+            amount: '0.00'
+            transactionCount: 0
+          - type: DISTRIBUTION
+            amount: '0.00'
+            transactionCount: 0
+          - type: GENERAL_EXPENSE
+            amount: '0.00'
+            transactionCount: 0
+          - type: MANAGEMENT_FEE
+            amount: '50.00'
+            transactionCount: 1
+    ClientRole:
+      type: string
+      enum:
+      - CLIENT_ADMIN
+      - CLIENT_MANAGER
+      - CLIENT_REPORT_VIEWER
+      - ARK_ADMIN
+      - ARK_OPERATIONS
+      - ARK_REPORT_VIEWER
+    Client:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - name
+      - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+    ClientChange:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - status
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+    AppUser:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - issuer
+      - subject
+      - userType
+      - clientId
+      - role
+      - status
+      - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        issuer:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 255
+        userType:
+          type: string
+          enum:
+          - CLIENT
+          - ARK
+        clientId:
+          type: string
+          format: uuid
+          nullable: true
+        role:
+          "$ref": "#/components/schemas/ClientRole"
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+        createdAt:
+          type: string
+          format: date-time
+    NewUser:
+      description: >-
+        Binding requires the configured trusted issuer AND a scope-bound identity approval
+        installed by a trusted operator after external identity verification. Issuer validation
+        alone does not verify subject ownership. No public registration or identity approval API.
+        CLIENT requires clientId and a CLIENT role; ARK requires omitted clientId and an ARK role.
+        CLIENT_ADMIN may provision only its own active Client and cannot assign ARK roles.
+        ARK_ADMIN may provision into suspended Clients. Missing approval and duplicate binding
+        both return 409 Identity binding unavailable without disclosing unrelated registrations.
+      type: object
+      additionalProperties: false
+      required:
+      - issuer
+      - subject
+      - userType
+      - role
+      - status
+      oneOf:
+      - required: [clientId]
+        properties:
+          userType:
+            enum: [CLIENT]
+          role:
+            enum: [CLIENT_ADMIN, CLIENT_MANAGER, CLIENT_REPORT_VIEWER]
+      - not:
+          required: [clientId]
+          properties:
+            clientId:
+              type: string
+              format: uuid
+        properties:
+          userType:
+            enum: [ARK]
+          role:
+            enum: [ARK_ADMIN, ARK_OPERATIONS, ARK_REPORT_VIEWER]
+      properties:
+        issuer:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 255
+        userType:
+          type: string
+          enum:
+          - CLIENT
+          - ARK
+        clientId:
+          type: string
+          format: uuid
+        role:
+          "$ref": "#/components/schemas/ClientRole"
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+    UserChange:
+      type: object
+      additionalProperties: false
+      required:
+      - role
+      - status
+      properties:
+        role:
+          "$ref": "#/components/schemas/ClientRole"
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - DISABLED
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: External OIDC access token. Signature, issuer, audience, expiration
+        and subject are validated; an active database-backed application user is required.
+        CLIENT ownership and role compatibility are enforced.

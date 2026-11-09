@@ -1,0 +1,63 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Local OS files and secrets ###
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+
+# Local credential stores and private key material
+.aws/
+.secrets/
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Editor backups and local caches
+*.swp
+*.swo
+*~
+.tmp/
+
+# API demo ownership manifest and local lock
+.ark-demo-state.json*
+
+# Generated local demo credentials and provider import; never commit.
+.ark-demo/
