@@ -82,7 +82,7 @@ The demo includes deterministic sample data, API verification, and a Postman col
 
 **Trade-off:** Docker Compose makes local setup reproducible, but does not provide production deployment, high availability, backups, or operational monitoring.
 
-See [Getting Started](GETTING_STARTED.md) for local setup and [Testing](TESTING.md) for test commands and recorded results.
+See [Getting Started](GETTING_STARTED.md) for local setup and [Testing](TESTING.md) for reproducible test commands and final CI results.
 
 ## Scope and Limitations
 
