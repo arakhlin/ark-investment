@@ -45,7 +45,7 @@ See [Architecture](docs/ARCHITECTURE.md) for the main design choices and trade-o
 
 ## Quick Start
 
-**Prerequisites:** Docker with Docker Compose and Node.js 22+.
+**Prerequisites:** Running Docker with Docker Compose v2 and Node.js 22+. First startup requires internet access to download container images and build dependencies. Allow Docker memory headroom for the API, PostgreSQL, and Keycloak; concurrent stacks or builds can cause slow startup or out-of-memory failures. No minimum RAM requirement has been established.
 
 From the repository root:
 
@@ -55,7 +55,7 @@ node docs/demo.cjs start
 
 This command starts the API, PostgreSQL, and Keycloak, waits for healthy services, runs database migrations, and provisions two Clients and seven users for authenticated API access. Repeating it preserves existing matching data and credentials. Startup or provisioning failures produce a nonzero exit status.
 
-Defaults: project `ark-demo-client-local`, API `http://localhost:18080`, and Keycloak `http://localhost:19080`. Override them with `DEMO_PROJECT`, `DEMO_API_PORT`, and `DEMO_OIDC_PORT` when needed.
+Defaults: project `ark-demo-client-local`, API `http://localhost:18080`, and Keycloak `http://localhost:19080`. Override them with `DEMO_PROJECT`, `DEMO_API_PORT`, and `DEMO_OIDC_PORT` when needed. The separate standard local setup (`docker-compose.yml`, requiring external OIDC configuration) defaults to API port `8080`; the self-contained demo uses `18080`.
 
 Financial demo data is optional and is not loaded by `start`:
 
@@ -67,7 +67,7 @@ For authentication, Postman examples, verification, and cleanup instructions, se
 
 ## Running Tests
 
-**Prerequisites:** Java 21, Docker, Node.js 22+, and Ruby with YAML support.
+**Prerequisites:** Java 21, running Docker, Node.js 22+, and Ruby with YAML support. Maven and Testcontainers download dependencies and images on first use. OpenAPI lint and optional Newman checks also require npm/npx and internet access for initial tool downloads.
 
 Run the Java unit and integration tests:
 
@@ -75,7 +75,7 @@ Run the Java unit and integration tests:
 ./mvnw -B clean verify
 ```
 
-Run the Node contract and fixture tests:
+Run all three Node suites (monetary contract, demo fixtures, and startup/retry behavior):
 
 ```sh
 node --test docs/api/monetary-validation.test.cjs docs/demo/fixtures.test.cjs docs/demo/start.test.cjs
@@ -87,7 +87,7 @@ Validate the OpenAPI specification:
 npx --yes @redocly/cli@2.75.0 lint docs/api/openapi.yaml
 ```
 
-Local acceptance completed successfully, including 165 Java tests, 126 Node tests, and live API verification. See [Testing](docs/TESTING.md) for the recorded results and outstanding checks.
+[Submission CI for `c5f115f`](https://github.com/arakhlin/ark-investment/actions/runs/42699130133) passed 165 Java tests, 158 Node tests, and OpenAPI lint. Full Docker acceptance was not repeated on that final implementation commit. See [Testing](docs/TESTING.md) for the startup timeout investigation, successful retry verification, final response-body timeout regression coverage, and historical acceptance evidence.
 
 ## Documentation
 

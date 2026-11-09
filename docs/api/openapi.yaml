@@ -19,7 +19,7 @@ info:
     Conventions: JSON request/response bodies; errors use application/problem+json. Unknown input fields and explicit nulls in write bodies are rejected; omit optional fields instead. Response fields explicitly marked nullable may contain null. Names must contain a non-whitespace character. PUT replaces mutable fields and does not create missing resources. No PATCH or bulk endpoints. Server-generated ids are UUIDs. Financial resource lists are paginated with stable ordering absent concurrent writes. Identity and administration lists are unpaginated arrays ordered by id; page/size query parameters have no effect. 401 covers absent/invalid authentication, 403 insufficient client role, 400 covers schema and cross-field validation, 404 missing resources, 409 state conflicts, 415 unsupported request content type, and 500 unexpected failures. Error responses omit stack traces and sensitive details.
 servers:
 - url: http://localhost:8080/api/v1
-  description: Local demonstration server.
+  description: Standard local API (docker-compose.yml). The self-contained demo defaults to http://localhost:18080/api/v1; use its configured DEMO_API_PORT when overridden.
 security:
 - bearerAuth: []
 tags:
