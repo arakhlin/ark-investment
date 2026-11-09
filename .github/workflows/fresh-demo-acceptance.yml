@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
-      DEMO_PROJECT: ark-ci-fresh-${{ github.run_id }}
+      DEMO_PROJECT: ark-demo-ci-${{ github.run_id }}
       DEMO_API_PORT: '18080'
       DEMO_OIDC_PORT: '19080'
     steps:
