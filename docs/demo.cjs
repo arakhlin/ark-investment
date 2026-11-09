@@ -65,14 +65,42 @@ async function up() {
 }
 
 function issuer(config) { return `http://localhost:${config.oidcPort}/realms/ark-dev`; }
-async function token(config,name) {
+async function token(config,name,timeoutMs=20000) {
   assert.ok(config.userPasswords[name],'Unknown demo user');
-  const response=await fetch(issuer(config)+'/protocol/openid-connect/token',{method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:new URLSearchParams({grant_type:'password',client_id:'ark-local-cli',username:name,password:config.userPasswords[name]}),
-    signal:AbortSignal.timeout(20000)});
-  assert.equal(response.status,200,`OIDC token issuance failed for ${name}`);
-  const value=await response.json(); assert.ok(value.access_token,'Provider returned no access token'); return value.access_token;
+  const signal=AbortSignal.timeout(timeoutMs);
+  try {
+    const response=await fetch(issuer(config)+'/protocol/openid-connect/token',{method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({grant_type:'password',client_id:'ark-local-cli',username:name,password:config.userPasswords[name]}),
+      signal});
+    if(response.status!==200) {
+      await response.body?.cancel();
+      throw Object.assign(new Error(`OIDC token issuance failed for ${name}: HTTP ${response.status}`),{status:response.status});
+    }
+    const value=await response.json(); assert.ok(value.access_token,'Provider returned no access token'); return value.access_token;
+  } catch(error) {
+    // Body reads can report AbortError even when our deadline caused the abort.
+    if(error.name==='AbortError' && signal.aborted && signal.reason?.name==='TimeoutError')
+      throw Object.assign(new Error('OIDC token request timed out',{cause:error}),{name:'TimeoutError'});
+    throw error;
+  }
+}
+// Provider health does not guarantee a cold token request completes within its deadline.
+// Retry only token acquisition during provisioning, never SQL or business API writes.
+async function provisionToken(config,name,timeoutMs=20000) {
+  for(let attempt=1;attempt<=4;attempt++) {
+    try { return await token(config,name,timeoutMs); }
+    catch(error) {
+      const transient=error.name==='TimeoutError' || [429,502,503,504].includes(error.status) ||
+        ['ECONNREFUSED','ECONNRESET','ETIMEDOUT','EAI_AGAIN','UND_ERR_CONNECT_TIMEOUT','UND_ERR_SOCKET'].includes(error.cause?.code || error.code);
+      const reason=error.status ? `HTTP ${error.status}` : error.name;
+      if(!transient || attempt===4)
+        throw new Error(`OIDC token acquisition for ${name} at ${issuer(config)}/protocol/openid-connect/token failed after ${attempt} attempt(s): ${reason}`,{cause:error});
+      const delay=1000*2**(attempt-1);
+      console.error(`WAIT: OIDC token acquisition for ${name}: ${reason}; retry ${attempt+1}/4 in ${delay}ms`);
+      await new Promise(resolve=>setTimeout(resolve,delay));
+    }
+  }
 }
 async function request(config,accessToken,method,route,body,expected=200) {
   const response=await fetch(`http://localhost:${config.apiPort}${route}`,{method,
@@ -89,14 +117,14 @@ async function provision() {
   const config=load();
   // Confirm actual issuer-issued identities match the credential-free source definitions.
   for(const user of fixtures.users) {
-    const jwt=await token(config,user.name);
+    const jwt=await provisionToken(config,user.name);
     const claims=JSON.parse(Buffer.from(jwt.split('.')[1],'base64url').toString());
     // This local check does not authorize API access; the Resource Server verifies the signature.
     assert.equal(claims.iss,issuer(config));assert.equal(claims.sub,user.subject,'Provider subject differs from bootstrap definition');
   }
   sql(support()+fixtures.provisionSql(issuer(config)));
   for(const user of fixtures.users) {
-    const actual=await request(config,await token(config,user.name),'GET','/api/v1/me');
+    const actual=await request(config,await provisionToken(config,user.name),'GET','/api/v1/me');
     assert.equal(actual.id,user.id);assert.equal(actual.subject,user.subject);
   }
   console.log('PASS: 2 clients, 7 verified users, all 6 roles; existing matching records preserved');
