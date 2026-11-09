@@ -1,0 +1,47 @@
+name: Fresh Docker Demo Acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/fresh-demo-acceptance.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fresh-demo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      DEMO_PROJECT: ark-ci-fresh-${{ github.run_id }}
+      DEMO_API_PORT: '18080'
+      DEMO_OIDC_PORT: '19080'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check Docker
+        run: |
+          docker version
+          docker compose version
+      - name: Fresh start
+        run: node docs/demo.cjs start
+      - name: Repeat start
+        run: node docs/demo.cjs start
+      - name: Seed and verify
+        run: |
+          node docs/demo.cjs seed
+          node docs/demo.cjs verify
+      - name: Repeat seed and verify
+        run: |
+          node docs/demo.cjs seed
+          node docs/demo.cjs verify
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          docker compose -p "$DEMO_PROJECT" -f docker-compose.demo.yml ps || true
+          docker compose -p "$DEMO_PROJECT" -f docker-compose.demo.yml logs --tail=80 api db keycloak || true
+      - name: Stop isolated demo
+        if: always()
+        run: docker compose -p "$DEMO_PROJECT" -f docker-compose.demo.yml down || true
