@@ -67,12 +67,12 @@ For authentication, Postman examples, verification, and cleanup instructions, se
 
 ## Testing
 
-The links below record successful GitHub Actions runs for earlier committed revisions; they do not validate the current uncommitted candidate.
+Commit `e1c512c0f031be590eda647d5d9693a27b52e10f` passed both GitHub Actions workflows:
 
-- [CI results](https://github.com/arakhlin/ark-investment/actions/runs/42705596451)
-- [Fresh Docker Demo Acceptance](https://github.com/arakhlin/ark-investment/actions/runs/42705596389)
+- [Build, tests and OpenAPI](https://github.com/arakhlin/ark-investment/actions/runs/42727801028): 165 Java tests, 163 Node tests, and OpenAPI validation.
+- [Fresh Docker Demo Acceptance](https://github.com/arakhlin/ark-investment/actions/runs/42728131595): fresh startup, repeated startup, seeding, repeated live API verification, and cleanup. This workflow was manually dispatched on the feature branch; the build/test workflow ran on the PR merge ref with an identical source tree.
 
-The current startup candidate passed local fresh-volume acceptance, including repeated startup, seeding, API verification, and administrative security checks. Under reduced Docker workload with cached image layers, complete setup including seeding took 49.30 seconds. This is not an uncached-build result or a GitHub CI result.
+Separately, a controlled local fresh-volume setup with cached image layers and no unrelated running containers took 49.30 seconds including seeding (48.49 seconds through provisioning). This is not an uncached-build measurement or a guarantee of reviewer startup time.
 
 See [Testing](docs/TESTING.md) for validation details and reproduction commands.
 
