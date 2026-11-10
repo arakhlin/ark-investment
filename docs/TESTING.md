@@ -1,9 +1,11 @@
 # Testing
 
-These successful GitHub Actions runs cover earlier committed revisions, not the current uncommitted startup candidate:
+The following GitHub Actions runs passed for commit `e1c512c0f031be590eda647d5d9693a27b52e10f`:
 
-- [CI](https://github.com/arakhlin/ark-investment/actions/runs/42705596451): Java unit and PostgreSQL integration tests, Node tests, and OpenAPI lint.
-- [Fresh Docker Demo Acceptance](https://github.com/arakhlin/ark-investment/actions/runs/42705596389): clean checkout, fresh Docker startup, repeated startup, seed, live API verification, repeated seed and verification, and cleanup.
+- [Build, tests and OpenAPI](https://github.com/arakhlin/ark-investment/actions/runs/42727801028): 165 Java tests, 163 Node tests, and OpenAPI validation. PR CI used GitHub's generated merge commit, whose source tree was verified identical to the feature commit.
+- [Fresh Docker Demo Acceptance](https://github.com/arakhlin/ark-investment/actions/runs/42728131595): manually dispatched against the feature commit; fresh startup, repeated startup, seeding, two live verifications (263 HTTP checks and 184 exact financial reports each), and cleanup passed.
+
+These runs validate the published feature commit. Subsequent documentation-only edits have not been independently validated by these historical runs.
 
 ## Run Automated Tests
 
@@ -47,7 +49,7 @@ node docs/demo.cjs down
 
 See [Getting Started](GETTING_STARTED.md) for setup and API examples. The demo is intended for local evaluation, not production deployment.
 
-## Local candidate validation — November 9, 2026
+## Local startup measurements — November 9, 2026
 
 The current candidate retains a custom Keycloak 26.8.2 image with build-time augmentation and `start --optimized --import-realm`. It uses a 64–512 MiB JVM heap, explicit local HTTP, a local cache, and a persisted `dev-file` database. The heap budget is not a container memory limit. The API starts after PostgreSQL becomes healthy, alongside Keycloak; the CLI waits for all three healthchecks before provisioning. Application security rules and database schema are unchanged. This remains a local demo, not a production deployment.
 
@@ -83,7 +85,7 @@ Service startup overlaps, so these durations must not be added together. Timings
 
 The controlled candidate passed initial startup and seeding, verification, repeated startup and seeding, repeated verification, and live administrative security-hardening checks. Each verification passed 263 HTTP checks and 184 exact financial reports, covering six roles, Client isolation, API writes, and audits. Repeated startup took 4.94 seconds with existing healthy containers and persisted data; this is not a fresh-volume measurement.
 
-Earlier local candidate validation also recorded 165 passing Java tests, 163 passing Node tests, and OpenAPI lint with two existing warnings (missing license and localhost server URL). Those are historical local results, not GitHub CI validation of the current working tree or of the subsequently edited documentation and workflow.
+The published feature commit also passed GitHub CI with 165 Java tests, 163 Node tests, and OpenAPI validation. The OpenAPI lint reported two non-blocking warnings (missing license and localhost server URL). See the linked CI runs above; local benchmark timings are separate evidence.
 
 Local evidence remains under `.ark-demo/reduced-load-diagnostics-20261109/` and `.ark-demo/cold-start-diagnostics-20261109/`. These ignored directories contain timings, logs, resource samples, and acceptance results; they are not included in a clean checkout. Generated credentials remain private and must not be submitted.
 
@@ -104,4 +106,4 @@ node docs/demo.cjs verify
 node docs/demo/hardening.cjs
 ```
 
-Retain the startup package as a locally validated demo setup, without claiming proven uncached-build gains. A baseline/candidate comparison with equivalent cache state and workload would be needed to establish a causal performance improvement.
+Retain the startup package as a CI-validated local demo setup, without claiming proven uncached-build gains. A baseline/candidate comparison with equivalent cache state and workload would be needed to establish a causal performance improvement.
