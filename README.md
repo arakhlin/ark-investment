@@ -1,4 +1,4 @@
-# Ark Investment API
+# Investment Ledger API
 
 A REST API for managing investment funds, investors, and financial transactions. Built with Java 21, Spring Boot, and PostgreSQL as a take-home engineering assignment.
 
