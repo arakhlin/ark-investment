@@ -74,9 +74,9 @@ The complete API specification is available in [OpenAPI](api/openapi.yaml).
 
 Import `postman/Ark-Investment-API.postman_collection.json` and `postman/Ark-Local-Demo.postman_environment.json`.
 
-The committed environment contains no passwords or tokens. Demo credentials are generated locally and stored under `.ark-demo/` (excluded from Git). To use Postman, populate your local environment with those credentials; never commit or share a populated environment file.
+The committed environment contains no passwords or tokens. Demo credentials are generated locally and stored under `.ark-demo/` (excluded from Git). Import the collection and environment, select **Ark Local Demo**, and populate the seven `*_password` environment variables from your own generated demo configuration. The collection obtains access tokens using these credentials; run its folders sequentially, not concurrently. Never commit or share a populated environment file.
 
-For a quick walkthrough without managing tokens manually, use the demo CLI commands above.
+For the simplest reviewer walkthrough, use the demo CLI commands above: they authenticate automatically, without copying credentials into Postman.
 
 ## Financial Reporting Example
 
