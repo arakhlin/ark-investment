@@ -45,6 +45,12 @@ View the local service URLs and available identities:
 node docs/demo.cjs info
 ```
 
+## First-Time Startup
+
+In a controlled run with no unrelated Docker containers running, setup with fresh volumes and credentials and **cached image layers completed in 49.30 seconds including seeding**. Startup through provisioning (`start` alone) took **48.49 seconds**; seeding remains a separate, optional command.
+
+Truly uncached builds may take several minutes to download dependencies and build the API and Keycloak images. No uncached-build performance improvement has been demonstrated. Allow Docker memory headroom and avoid competing stacks when evaluating startup. See [Testing](TESTING.md) for measurement conditions and acceptance results.
+
 ## Explore the API
 
 The demo CLI handles local Keycloak authentication.

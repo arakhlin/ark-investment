@@ -47,6 +47,56 @@ for(const stage of ['startup','provisioning']) test(`start exits nonzero on ${st
   assert.deepEqual(run.errors,[`${stage} failed`]);
 });
 
+function startupHarness(failCommand) {
+  const commands=[];
+  const actualRequire=createRequire(filename);
+  const {EventEmitter}=require('node:events');
+  const record=args=>{
+    assert.deepEqual(Array.from(args.slice(0,3)),['compose','-p','ark-demo-test']);
+    const command=Array.from(args.slice(7));
+    commands.push(command);
+    return command[0]===failCommand;
+  };
+  const childProcess={
+    spawn:(executable,args)=>{
+      assert.equal(executable,'docker');
+      const failed=record(args),child=new EventEmitter();
+      queueMicrotask(()=>child.emit('exit',failed?1:0,null));
+      return child;
+    },
+    spawnSync:(executable,args)=>{
+      assert.equal(executable,'docker');
+      return {status:record(args)?1:0,stdout:'',stderr:''};
+    }
+  };
+  const context={require:name=>name==='node:child_process'?childProcess:
+    name==='node:fs'?{...fs,chmodSync:()=>{}}:actualRequire(name),
+    module:{exports:{}},__dirname:path.dirname(filename),
+    process:{env:{DEMO_PROJECT:'ark-demo-test'}},console:{log:()=>{}},
+    config:{apiPort:18080,oidcPort:19080}};
+  vm.runInNewContext(source+'\ninitialize=()=>{}; load=()=>globalThis.config; module.exports.up=up;',context,{filename});
+  return {commands,up:context.module.exports.up};
+}
+
+test('startup builds both images before copying the realm and waiting for healthy services',async()=>{
+  const h=startupHarness();
+  await h.up();
+  assert.deepEqual(h.commands.map(c=>c[0]),['pull','build','create','cp','up']);
+  assert.deepEqual(h.commands[0],['pull','db']);
+  assert.deepEqual(h.commands[1],['build','--pull','api','keycloak']);
+  assert.deepEqual(h.commands[2],['create','--no-build']);
+  assert.ok(h.commands[3][1].endsWith('/realm/ark-dev-realm.json'));
+  assert.equal(h.commands[3][2],'keycloak:/opt/keycloak/data/import/ark-dev-realm.json');
+  assert.deepEqual(h.commands[4],['up','-d','--no-build','--wait','--wait-timeout','240']);
+});
+
+for(const command of ['pull','build','create','cp']) test(`startup stops after ${command} failure`,async()=>{
+  const h=startupHarness(command);
+  await assert.rejects(h.up(),/Docker/);
+  assert.equal(h.commands.at(-1)[0],command);
+  assert.ok(!h.commands.some(c=>c[0]==='up'));
+});
+
 function tokenHarness(fetch,timeout=ms=>AbortSignal.timeout(ms)) {
   const config={project:'ark-demo-test',oidcPort:19080,apiPort:18080,
     userPasswords:Object.fromEntries(require('./fixtures.cjs').users.map(u=>[u.name,'test-placeholder']))};

@@ -67,12 +67,14 @@ For authentication, Postman examples, verification, and cleanup instructions, se
 
 ## Testing
 
-The final submission passed automated Java and Node tests, OpenAPI validation, and a fresh Docker demo acceptance run (startup, repeat startup, seed, and live API verification).
+The links below record successful GitHub Actions runs for earlier committed revisions; they do not validate the current uncommitted candidate.
 
 - [CI results](https://github.com/arakhlin/ark-investment/actions/runs/42705596451)
 - [Fresh Docker Demo Acceptance](https://github.com/arakhlin/ark-investment/actions/runs/42705596389)
 
-See [Testing](docs/TESTING.md) for commands to reproduce these checks.
+The current startup candidate passed local fresh-volume acceptance, including repeated startup, seeding, API verification, and administrative security checks. Under reduced Docker workload with cached image layers, complete setup including seeding took 49.30 seconds. This is not an uncached-build result or a GitHub CI result.
+
+See [Testing](docs/TESTING.md) for validation details and reproduction commands.
 
 ## Documentation
 
