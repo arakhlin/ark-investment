@@ -2,7 +2,7 @@
 
 ## Overview
 
-Ark Investment API is a Java 21 / Spring Boot application built as a **Modular Monolith**. It manages Clients, Funds, Investors, Participations, Transactions, and Financial Reports.
+Investment Ledger API is a Java 21 / Spring Boot application built as a **Modular Monolith**. It manages Clients, Funds, Investors, Participations, Transactions, and Financial Reports.
 
 The application uses PostgreSQL for persistence, Keycloak for local authentication, and Spring Security for authorization.
 
