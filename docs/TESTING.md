@@ -1,11 +1,8 @@
 # Testing
 
-The following GitHub Actions runs passed for commit `e1c512c0f031be590eda647d5d9693a27b52e10f`:
+The latest documentation revision (`af08b5c`) passed [Build, tests and OpenAPI](https://github.com/arakhlin/ark-investment/actions/runs/42729283046): 165 Java tests, 163 Node tests, and OpenAPI validation.
 
-- [Build, tests and OpenAPI](https://github.com/arakhlin/ark-investment/actions/runs/42727801028): 165 Java tests, 163 Node tests, and OpenAPI validation. PR CI used GitHub's generated merge commit, whose source tree was verified identical to the feature commit.
-- [Fresh Docker Demo Acceptance](https://github.com/arakhlin/ark-investment/actions/runs/42728131595): manually dispatched against the feature commit; fresh startup, repeated startup, seeding, two live verifications (263 HTTP checks and 184 exact financial reports each), and cleanup passed.
-
-These runs validate the published feature commit. Subsequent documentation-only edits have not been independently validated by these historical runs.
+The application revision (`e1c512c`) passed [Fresh Docker Demo Acceptance](https://github.com/arakhlin/ark-investment/actions/runs/42728131595), manually dispatched on the feature branch. Fresh startup, repeated startup, seeding, two live verifications (263 HTTP checks and 184 exact financial reports each), and cleanup passed. Subsequent commits through `af08b5c` changed documentation only.
 
 ## Run Automated Tests
 
@@ -49,9 +46,9 @@ node docs/demo.cjs down
 
 See [Getting Started](GETTING_STARTED.md) for setup and API examples. The demo is intended for local evaluation, not production deployment.
 
-## Local startup measurements — November 9, 2026
+## Appendix: Local startup measurements — November 9, 2026
 
-The current candidate retains a custom Keycloak 26.8.2 image with build-time augmentation and `start --optimized --import-realm`. It uses a 64–512 MiB JVM heap, explicit local HTTP, a local cache, and a persisted `dev-file` database. The heap budget is not a container memory limit. The API starts after PostgreSQL becomes healthy, alongside Keycloak; the CLI waits for all three healthchecks before provisioning. Application security rules and database schema are unchanged. This remains a local demo, not a production deployment.
+The validated demo uses a custom Keycloak 26.8.2 image with build-time augmentation and `start --optimized --import-realm`. It uses a 64–512 MiB JVM heap, explicit local HTTP, a local cache, and a persisted `dev-file` database. The heap budget is not a container memory limit. The API starts after PostgreSQL becomes healthy, alongside Keycloak; the CLI waits for all three healthchecks before provisioning. Application security rules and database schema are unchanged. This remains a local demo, not a production deployment.
 
 ### Startup measurements
 
@@ -85,7 +82,7 @@ Service startup overlaps, so these durations must not be added together. Timings
 
 The controlled candidate passed initial startup and seeding, verification, repeated startup and seeding, repeated verification, and live administrative security-hardening checks. Each verification passed 263 HTTP checks and 184 exact financial reports, covering six roles, Client isolation, API writes, and audits. Repeated startup took 4.94 seconds with existing healthy containers and persisted data; this is not a fresh-volume measurement.
 
-The published feature commit also passed GitHub CI with 165 Java tests, 163 Node tests, and OpenAPI validation. The OpenAPI lint reported two non-blocking warnings (missing license and localhost server URL). See the linked CI runs above; local benchmark timings are separate evidence.
+GitHub CI passed with 165 Java tests, 163 Node tests, and OpenAPI validation. The OpenAPI lint reported two non-blocking warnings (missing license and localhost server URL). See the linked CI runs above; local benchmark timings are separate evidence.
 
 Local evidence remains under `.ark-demo/reduced-load-diagnostics-20261109/` and `.ark-demo/cold-start-diagnostics-20261109/`. These ignored directories contain timings, logs, resource samples, and acceptance results; they are not included in a clean checkout. Generated credentials remain private and must not be submitted.
 
