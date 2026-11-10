@@ -40,8 +40,20 @@ jobs:
       - name: Diagnostics on failure
         if: failure()
         run: |
-          docker compose -p "$DEMO_PROJECT" -f docker-compose.demo.yml ps || true
-          docker compose -p "$DEMO_PROJECT" -f docker-compose.demo.yml logs --tail=80 api db keycloak || true
+          env_file=".ark-demo/$DEMO_PROJECT/compose.env"
+          if [ -f "$env_file" ]; then
+            docker compose -p "$DEMO_PROJECT" --env-file "$env_file" -f docker-compose.demo.yml ps -a || true
+            docker compose -p "$DEMO_PROJECT" --env-file "$env_file" -f docker-compose.demo.yml logs --no-color --tail=80 api db keycloak || true
+          else
+            echo "Demo environment file unavailable; showing project container status."
+            docker ps -a --filter "label=com.docker.compose.project=$DEMO_PROJECT" || true
+          fi
       - name: Stop isolated demo
         if: always()
-        run: docker compose -p "$DEMO_PROJECT" -f docker-compose.demo.yml down || true
+        run: |
+          env_file=".ark-demo/$DEMO_PROJECT/compose.env"
+          if [ -f "$env_file" ]; then
+            docker compose -p "$DEMO_PROJECT" --env-file "$env_file" -f docker-compose.demo.yml down
+          else
+            echo "Demo environment file unavailable; skipping Compose cleanup."
+          fi

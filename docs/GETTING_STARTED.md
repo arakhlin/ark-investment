@@ -45,6 +45,12 @@ View the local service URLs and available identities:
 node docs/demo.cjs info
 ```
 
+## First-Time Startup
+
+In a controlled run with no unrelated Docker containers running, setup with fresh volumes and credentials, using **cached image layers**, completed in **49.30 seconds including seeding**. Startup through provisioning (`start` alone) took **48.49 seconds**; seeding remains a separate, optional command.
+
+Truly uncached builds may take several minutes to download dependencies and build the API and Keycloak images. No uncached-build performance improvement has been demonstrated. Allow Docker memory headroom and avoid competing stacks when evaluating startup. See [Testing](TESTING.md) for measurement conditions and acceptance results.
+
 ## Explore the API
 
 The demo CLI handles local Keycloak authentication.
@@ -68,9 +74,9 @@ The complete API specification is available in [OpenAPI](api/openapi.yaml).
 
 Import `postman/Ark-Investment-API.postman_collection.json` and `postman/Ark-Local-Demo.postman_environment.json`.
 
-The committed environment contains no passwords or tokens. Demo credentials are generated locally and stored under `.ark-demo/` (excluded from Git). To use Postman, populate your local environment with those credentials; never commit or share a populated environment file.
+The committed environment contains no passwords or tokens. Demo credentials are generated locally and stored under `.ark-demo/` (excluded from Git). Import the collection and environment, select **Ark Local Demo**, and populate the seven `*_password` environment variables from your own generated demo configuration. The collection obtains access tokens using these credentials; run its folders sequentially, not concurrently. Never commit or share a populated environment file.
 
-For a quick walkthrough without managing tokens manually, use the demo CLI commands above.
+For the simplest reviewer walkthrough, use the demo CLI commands above: they authenticate automatically, without copying credentials into Postman.
 
 ## Financial Reporting Example
 

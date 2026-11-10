@@ -56,8 +56,9 @@ async function up() {
   initialize();
   // Host parent directory is owner-only; the provider must read its imported file after copy.
   fs.chmodSync(path.join(directory,'realm/ark-dev-realm.json'),0o644);
-  await streamed(['pull','db','keycloak']);
-  await streamed(['build','api']);
+  await streamed(['pull','db']);
+  // Keycloak augmentation is cached in its image, never in a credential-bearing data volume.
+  await streamed(['build','--pull','api','keycloak']);
   compose(['create','--no-build']);
   compose(['cp',path.join(directory,'realm/ark-dev-realm.json'),'keycloak:/opt/keycloak/data/import/ark-dev-realm.json']);
   await streamed(['up','-d','--no-build','--wait','--wait-timeout','240']);
