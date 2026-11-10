@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide explains how to run the Ark Investment API locally and explore its features using the command line or Postman.
+This guide explains how to run the Investment Ledger API locally and explore its features using the command line or Postman.
 
 The local demo uses Docker Compose to start the API, PostgreSQL, and Keycloak.
 
