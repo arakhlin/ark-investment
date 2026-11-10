@@ -1,7 +1,7 @@
 ---
 openapi: 3.0.3
 info:
-  title: Ark Investment API
+  title: Investment Ledger API
   version: 2.0.0
   description: |-
     REST contract for ARKAPI-3 under Epic ARKAPI-1, informed by ARKAPI-2 through ARKAPI-7. Implemented backend scope: no frontend, valuation, return calculations, automated fees, or accounting integrations.
@@ -1202,7 +1202,7 @@ components:
           minLength: 1
           maxLength: 200
           pattern: "\\S"
-          example: Ark Growth Fund
+          example: Growth Fund
         description:
           type: string
           maxLength: 1000
@@ -1373,7 +1373,7 @@ components:
           minLength: 1
           maxLength: 200
           pattern: "\\S"
-          example: Ark Growth Fund
+          example: Growth Fund
         description:
           type: string
           maxLength: 1000
@@ -1383,7 +1383,7 @@ components:
           readOnly: true
       example:
         id: 11111111-1111-4111-8111-111111111111
-        name: Ark Growth Fund
+        name: Growth Fund
         description: Long-term growth portfolio
         currency: USD
     Investor:
